@@ -36,12 +36,12 @@ void movePlayer(int playerIndex,
 void playTurn(int playerIndex)
 {
     int dice;
+    int pos;
 
     if(players[playerIndex].bankrupt)
         return;
 
     printf("\n----------------------------------\n");
-
     printf("%s's Turn\n",
            players[playerIndex].name);
 
@@ -52,6 +52,31 @@ void playTurn(int playerIndex)
 
     movePlayer(playerIndex,
                dice);
+    pos = players[playerIndex].position;
+    
+switch(board[pos].type)
+{
+    case PROPERTY:
+
+        payRent(playerIndex);
+        buyProperty(playerIndex);
+        break;
+
+    case EVENT:
+
+        executeEvent(playerIndex);
+        break;
+
+    case TAX:
+
+        payTax(playerIndex,1000);
+        break;
+
+    default:
+
+        break;
+}
+}
 
     payRent(playerIndex);
 
