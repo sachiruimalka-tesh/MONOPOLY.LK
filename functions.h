@@ -35,6 +35,8 @@ void displayPlayers(void);
 
 int shouldBuyProperty(int playerIndex);
 int shouldConstruct(int playerIndex, int cost);
+int wantsLoan(int playerIndex);
+int wantsToRepayLoan(int playerIndex);
 
 /*=============================
         finance.c
@@ -90,5 +92,18 @@ int countHotels(int playerIndex);
 =============================*/
 
 void executeEvent(int playerIndex);
+
+/*=============================
+        bank.c
+=============================*/
+
+int totalEligibleCollateral(int playerIndex);
+int calculateMaxLoan(int playerIndex);
+void obtainLoan(int playerIndex);
+void repayLoan(int playerIndex, int amount);
+void handleBankVisit(int playerIndex);
+void demolishBuildingsOn(int index);
+void foreclose(int playerIndex);
+void processLoans(void);
 
 #endif
