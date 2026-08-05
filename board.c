@@ -208,5 +208,3 @@ void displayBoard(void)
         printf("\n");
     }
 }
-
-
