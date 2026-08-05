@@ -2,9 +2,6 @@
 #include "types.h"
 #include "functions.h"
 
-/* Function prototype from game.c */
-void startGame(void);
-
 int main(void)
 {
     printf("=========================================\n");

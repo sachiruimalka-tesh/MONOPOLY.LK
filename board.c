@@ -23,9 +23,9 @@ void setProperty(int index,
                  int houseCost,
                  int hotelCost);
 
-void setRailway(int index, char name[]);
+void setRailway(int index, char name[], int purchasePrice);
 
-void setUtility(int index, char name[]);
+void setUtility(int index, char name[], int purchasePrice);
 
 void setSpecialSquare(int index,
                       SquareType type,
@@ -71,31 +71,33 @@ void setProperty(int index,
     board[index].property.condition = 100;
 }
 
-void setRailway(int index, char name[])
+void setRailway(int index, char name[], int purchasePrice)
 {
     board[index].index = index;
     board[index].type = RAILWAY;
 
     strcpy(board[index].name, name);
-
     strcpy(board[index].property.name, name);
 
-    board[index].property.owner = -1;
+    board[index].property.purchasePrice = purchasePrice;
+    board[index].property.mortgageValue = purchasePrice / 2;
 
+    board[index].property.owner = -1;
     board[index].property.mortgaged = 0;
 }
 
-void setUtility(int index, char name[])
+void setUtility(int index, char name[], int purchasePrice)
 {
     board[index].index = index;
     board[index].type = UTILITY;
 
     strcpy(board[index].name, name);
-
     strcpy(board[index].property.name, name);
 
-    board[index].property.owner = -1;
+    board[index].property.purchasePrice = purchasePrice;
+    board[index].property.mortgageValue = purchasePrice / 2;
 
+    board[index].property.owner = -1;
     board[index].property.mortgaged = 0;
 }
 
@@ -129,15 +131,15 @@ void initializeBoard(void)
 
     /* ---------- Railways ---------- */
 
-    setRailway(5, "Colombo Fort Railway Station");
-    setRailway(15, "Kandy Railway Station");
-    setRailway(25, "Galle Railway Station");
-    setRailway(35, "Jaffna Railway Station");
+    setRailway(5, "Colombo Fort Railway Station", 2000);
+    setRailway(15, "Kandy Railway Station", 2000);
+    setRailway(25, "Galle Railway Station", 2000);
+    setRailway(35, "Jaffna Railway Station", 2000);
 
     /* ---------- Utilities ---------- */
 
-    setUtility(12, "Ceylon Electricity Board");
-    setUtility(28, "National Water Supply and Drainage Board");
+    setUtility(12, "Ceylon Electricity Board", 1500);
+    setUtility(28, "National Water Supply and Drainage Board", 1500);
 
     /* ---------- Brown ---------- */
 

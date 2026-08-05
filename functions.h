@@ -11,7 +11,7 @@ void initializeBoard(void);
 void displayBoard(void);
 
 void setProperty(int index,
-                 const char *name,
+                 char name[],
                  PropertyGroup group,
                  int purchasePrice,
                  int baseRent,
@@ -19,12 +19,12 @@ void setProperty(int index,
                  int houseCost,
                  int hotelCost);
 
-void setRailway(int index, const char *name);
-void setUtility(int index, const char *name);
+void setRailway(int index, char name[], int purchasePrice);
+void setUtility(int index, char name[], int purchasePrice);
 
 void setSpecialSquare(int index,
                       SquareType type,
-                      const char *name);
+                      char name[]);
 
 /*=============================
         players.c
@@ -41,7 +41,7 @@ int shouldBuyProperty(int playerIndex);
 
 void buyProperty(int playerIndex);
 
-void payRent(int playerIndex);
+void payRent(int playerIndex, int diceValue);
 
 void payTax(int playerIndex, int amount);
 
@@ -50,10 +50,14 @@ void payMoney(int playerIndex, int amount);
 void receiveMoney(int playerIndex, int amount);
 
 int calculateRent(int position);
+int calculateRailwayRent(int playerIndex);
+int calculateUtilityRent(int playerIndex, int diceValue);
 
 /*=============================
         game.c
 =============================*/
+
+void startGame(void);
 
 void playGame(void);
 
@@ -64,7 +68,13 @@ void movePlayer(int playerIndex,
 
 int rollDice(void);
 
+int handleJail(int playerIndex);
+
 void determineTurnOrder(void);
+
+void displayRoundSummary(int round);
+
+int countSolventPlayers(void);
 
 /*=============================
         events.c
