@@ -123,6 +123,150 @@ int calculateUtilityRent(int playerIndex, int diceValue)
 }
 
 /*========================================
+    MONOPOLY / BUILDING CONSTRUCTION
+    (Rules 8, 9, 10)
+========================================*/
+
+/* How many PROPERTY squares belong to this colour group in total? */
+int groupSize(PropertyGroup group)
+{
+    int i;
+    int count;
+
+    count = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].type == PROPERTY && board[i].property.group == group)
+            count++;
+    }
+
+    return count;
+}
+
+/* Does this player own every property in the given colour group? */
+int ownsMonopoly(int playerIndex, PropertyGroup group)
+{
+    int i;
+    int owned;
+
+    owned = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].type == PROPERTY && board[i].property.group == group)
+        {
+            if(board[i].property.owner == playerIndex)
+                owned++;
+        }
+    }
+
+    return (owned == groupSize(group));
+}
+
+/* Try to build one house (or one hotel) somewhere in this colour group.
+   Building must stay even : we always add to the property with the
+   fewest houses first (Rule 9).                                        */
+void developGroup(int playerIndex, PropertyGroup group)
+{
+    int i;
+    int minHouses;
+    int targetIndex;
+    int allFourHouses;
+
+    if(!ownsMonopoly(playerIndex, group))
+        return;
+
+    minHouses = MAX_HOUSES + 1;
+    targetIndex = -1;
+    allFourHouses = 1;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].type == PROPERTY && board[i].property.group == group)
+        {
+            if(board[i].property.hotel)
+                continue;
+
+            if(board[i].property.houses < MAX_HOUSES)
+                allFourHouses = 0;
+
+            if(board[i].property.houses < minHouses)
+            {
+                minHouses = board[i].property.houses;
+                targetIndex = i;
+            }
+        }
+    }
+
+    /* Every property already has a hotel - nothing left to build */
+    if(targetIndex == -1)
+        return;
+
+    /* Case 1 : every property in the group already has 4 houses ->
+                 try to upgrade the target property to a hotel      */
+    if(allFourHouses)
+    {
+        int hotelCost;
+
+        hotelCost = board[targetIndex].property.hotelCost;
+
+        if(!shouldConstruct(playerIndex, hotelCost))
+            return;
+
+        if(players[playerIndex].cash < hotelCost)
+            return;
+
+        payMoney(playerIndex, hotelCost);
+
+        board[targetIndex].property.houses = 0;
+        board[targetIndex].property.hotel = 1;
+
+        printf("\n%s upgraded %s to a Hotel.\n",
+               players[playerIndex].name,
+               board[targetIndex].name);
+
+        printf("Construction Cost : LKR %d\n", hotelCost);
+
+        return;
+    }
+
+    /* Case 2 : build one more house on the property with the fewest */
+    {
+        int houseCost;
+
+        houseCost = board[targetIndex].property.houseCost;
+
+        if(!shouldConstruct(playerIndex, houseCost))
+            return;
+
+        if(players[playerIndex].cash < houseCost)
+            return;
+
+        payMoney(playerIndex, houseCost);
+
+        board[targetIndex].property.houses++;
+
+        printf("\n%s constructed one house on %s.\n",
+               players[playerIndex].name,
+               board[targetIndex].name);
+
+        printf("Construction Cost : LKR %d\n", houseCost);
+    }
+}
+
+/* Called once per turn : look at every colour group and try to build */
+void constructBuildings(int playerIndex)
+{
+    PropertyGroup group;
+
+    for(group = BROWN; group < NO_GROUP; group++)
+    {
+        developGroup(playerIndex, group);
+    }
+}
+
+/*========================================
     BUYING PROPERTY / RAILWAY / UTILITY
 ========================================*/
 
