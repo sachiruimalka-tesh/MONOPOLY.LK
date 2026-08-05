@@ -163,7 +163,7 @@ void playTurn(int playerIndex)
 
         case TAX:
 
-            payTax(playerIndex, 1000);
+            payTax(playerIndex, incomeTaxAmount);
             break;
 
         case GO_TO_JAIL:
@@ -384,11 +384,26 @@ void playGame(void)
         ageProperties();
         ageBuildings();
 
+        /* Count down any active event bonuses/penalties */
+        decrementEventTimers();
+
         /* Every 10 rounds : disasters and inflation (Rule-LK 10, 12) */
         if(round % 10 == 0)
         {
             triggerDisaster();
             applyInflation();
+        }
+
+        /* Every 15 rounds : a national Economic Event (Section 2.5) */
+        if(round % 15 == 0)
+        {
+            triggerEconomicEvent();
+        }
+
+        /* Every 20 rounds : a Government Regulation (Section 2.7) */
+        if(round % 20 == 0)
+        {
+            triggerGovernmentRegulation();
         }
 
         displayRoundSummary(round);

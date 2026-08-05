@@ -73,6 +73,10 @@ int calculateRent(int position)
         }
     }
 
+    /* Apply any active hotel rent bonus/penalty from events (Section 2.5/2.7) */
+    if(p->hotel)
+        rent = (rent * hotelRentMultiplierPercent) / 100;
+
     if(p->houses > 0 || p->hotel)
     {
         conditionPercent = rentConditionPercent(p->condition);
@@ -101,10 +105,10 @@ int calculateRailwayRent(int playerIndex)
 
     switch(count)
     {
-        case 1:  return 250;
-        case 2:  return 500;
-        case 3:  return 1000;
-        case 4:  return 2000;
+        case 1:  return (250  * railwayRentMultiplierPercent) / 100;
+        case 2:  return (500  * railwayRentMultiplierPercent) / 100;
+        case 3:  return (1000 * railwayRentMultiplierPercent) / 100;
+        case 4:  return (2000 * railwayRentMultiplierPercent) / 100;
         default: return 0;
     }
 }
@@ -127,10 +131,10 @@ int calculateUtilityRent(int playerIndex, int diceValue)
     }
 
     if(count == 2)
-        return 10 * diceValue;
+        return (10 * diceValue * utilityRentMultiplierPercent) / 100;
 
     if(count == 1)
-        return 4 * diceValue;
+        return (4 * diceValue * utilityRentMultiplierPercent) / 100;
 
     return 0;
 }
@@ -222,7 +226,8 @@ void developGroup(int playerIndex, PropertyGroup group)
     {
         int hotelCost;
 
-        hotelCost = board[targetIndex].property.hotelCost;
+        hotelCost = (board[targetIndex].property.hotelCost *
+                     constructionCostMultiplierPercent) / 100;
 
         if(!shouldConstruct(playerIndex, hotelCost))
             return;
@@ -248,7 +253,8 @@ void developGroup(int playerIndex, PropertyGroup group)
     {
         int houseCost;
 
-        houseCost = board[targetIndex].property.houseCost;
+        houseCost = (board[targetIndex].property.houseCost *
+                     constructionCostMultiplierPercent) / 100;
 
         if(!shouldConstruct(playerIndex, houseCost))
             return;
@@ -273,6 +279,9 @@ void constructBuildings(int playerIndex)
 {
     PropertyGroup group;
 
+    if(constructionSuspendedRoundsLeft > 0)
+        return;   /* Labour Strike / Fuel Crisis event active */
+
     for(group = BROWN; group < NO_GROUP; group++)
     {
         developGroup(playerIndex, group);
@@ -282,6 +291,28 @@ void constructBuildings(int playerIndex)
 /*========================================
     BUYING PROPERTY / RAILWAY / UTILITY
 ========================================*/
+
+int countUndevelopedProperties(int playerIndex)
+{
+    int i;
+    int count;
+
+    count = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].type == PROPERTY &&
+           board[i].property.owner == playerIndex &&
+           board[i].property.houses == 0 &&
+           !board[i].property.hotel)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
 
 void buyProperty(int playerIndex)
 {
@@ -304,6 +335,12 @@ void buyProperty(int playerIndex)
 
     if(!shouldBuyProperty(playerIndex))
         return;
+
+    if(antiSpeculationActive && board[pos].type == PROPERTY)
+    {
+        if(countUndevelopedProperties(playerIndex) >= 3)
+            return;   /* Rule-LK 24 : Anti-Speculation Act */
+    }
 
     price = board[pos].property.purchasePrice;
 
@@ -366,6 +403,13 @@ void payRent(int playerIndex, int diceValue)
 
     if(board[pos].property.mortgaged)
         return;
+
+    if(pos == closedPropertyIndex && closedPropertyRoundsLeft > 0)
+    {
+        printf("\n%s landed on %s, but it is closed (Political Rally) - no rent.\n",
+               players[playerIndex].name, board[pos].name);
+        return;
+    }
 
     if(board[pos].type == PROPERTY && board[pos].property.damaged)
     {

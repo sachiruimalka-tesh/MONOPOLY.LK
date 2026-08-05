@@ -221,4 +221,33 @@ extern Player players[MAX_PLAYERS];
 extern int currentInflationRate;
 extern int currentLoanInterestRate;
 
+/* Temporary rent bonuses/penalties from event cards, economic events,
+   and government regulations. "RoundsLeft" counts down to 0, at which
+   point the multiplier resets back to 100 (normal). If several events
+   would affect the same thing, the most recent one simply overwrites
+   the last (kept simple on purpose - no stacking).                    */
+extern int hotelRentMultiplierPercent;
+extern int hotelRentRoundsLeft;
+
+extern int railwayRentMultiplierPercent;
+extern int railwayRentRoundsLeft;
+
+extern int utilityRentMultiplierPercent;
+extern int utilityRentRoundsLeft;
+
+extern int constructionCostMultiplierPercent;
+extern int constructionCostRoundsLeft;
+
+extern int insurancePremiumMultiplierPercent;
+extern int insurancePremiumRoundsLeft;
+
+extern int constructionSuspendedRoundsLeft;
+
+extern int closedPropertyIndex;
+extern int closedPropertyRoundsLeft;
+
+extern int incomeTaxAmount;
+
+extern int antiSpeculationActive;
+
 #endif

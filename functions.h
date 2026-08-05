@@ -58,6 +58,7 @@ void receiveMoney(int playerIndex, int amount);
 int calculateRent(int position);
 int calculateRailwayRent(int playerIndex);
 int calculateUtilityRent(int playerIndex, int diceValue);
+int countUndevelopedProperties(int playerIndex);
 
 int groupSize(PropertyGroup group);
 int ownsMonopoly(int playerIndex, PropertyGroup group);
@@ -95,6 +96,12 @@ int countHotels(int playerIndex);
 =============================*/
 
 void executeEvent(int playerIndex);
+void triggerEconomicEvent(void);
+void triggerGovernmentRegulation(void);
+void decrementEventTimers(void);
+void changeAllPropertyValues(int ratePercent);
+void changeGroupValues(PropertyGroup group, int ratePercent);
+void changeAllHouseCosts(int ratePercent);
 
 /*=============================
         bank.c

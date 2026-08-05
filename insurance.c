@@ -83,6 +83,7 @@ void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type)
     }
 
     premium = (value * premiumPercent) / 100;
+    premium = (premium * insurancePremiumMultiplierPercent) / 100;
 
     if(players[playerIndex].cash < premium)
         return;
