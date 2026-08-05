@@ -34,6 +34,7 @@ void initializePlayers(void);
 void displayPlayers(void);
 
 int shouldBuyProperty(int playerIndex);
+int shouldConstruct(int playerIndex, int cost);
 
 /*=============================
         finance.c
@@ -52,6 +53,11 @@ void receiveMoney(int playerIndex, int amount);
 int calculateRent(int position);
 int calculateRailwayRent(int playerIndex);
 int calculateUtilityRent(int playerIndex, int diceValue);
+
+int groupSize(PropertyGroup group);
+int ownsMonopoly(int playerIndex, PropertyGroup group);
+void developGroup(int playerIndex, PropertyGroup group);
+void constructBuildings(int playerIndex);
 
 /*=============================
         game.c
@@ -75,6 +81,9 @@ void determineTurnOrder(void);
 void displayRoundSummary(int round);
 
 int countSolventPlayers(void);
+
+int countHouses(int playerIndex);
+int countHotels(int playerIndex);
 
 /*=============================
         events.c
