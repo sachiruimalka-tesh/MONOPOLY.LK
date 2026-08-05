@@ -104,6 +104,18 @@ void changeGroupValues(PropertyGroup group, int ratePercent);
 void changeAllHouseCosts(int ratePercent);
 
 /*=============================
+        market.c
+=============================*/
+
+void initMarket(void);
+const char *groupName(PropertyGroup group);
+PropertyGroup pickEligibleGroup(int currentRound, int avoid1, int avoid2);
+void reviewPropertyMarket(int currentRound);
+void drawRegionalCard(void);
+void decrementMarketTimers(void);
+void displayMarketConditions(void);
+
+/*=============================
         bank.c
 =============================*/
 

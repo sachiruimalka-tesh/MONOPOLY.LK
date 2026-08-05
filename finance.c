@@ -73,6 +73,10 @@ int calculateRent(int position)
         }
     }
 
+    /* Apply any active Dynamic Market / Regional Card rent effect
+       on this property's colour group (Sections 2.9, 2.10)         */
+    rent = (rent * groupRentMultiplier[p->group]) / 100;
+
     /* Apply any active hotel rent bonus/penalty from events (Section 2.5/2.7) */
     if(p->hotel)
         rent = (rent * hotelRentMultiplierPercent) / 100;
@@ -343,6 +347,9 @@ void buyProperty(int playerIndex)
     }
 
     price = board[pos].property.purchasePrice;
+
+    if(board[pos].type == PROPERTY)
+        price = currentMarketValue(pos);
 
     if(players[playerIndex].cash < price)
         return;

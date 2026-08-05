@@ -386,18 +386,23 @@ void playGame(void)
 
         /* Count down any active event bonuses/penalties */
         decrementEventTimers();
+        decrementMarketTimers();
 
-        /* Every 10 rounds : disasters and inflation (Rule-LK 10, 12) */
+        /* Every 10 rounds : disasters, inflation, and a market review
+           (Rule-LK 10, 12, 30)                                       */
         if(round % 10 == 0)
         {
             triggerDisaster();
             applyInflation();
+            reviewPropertyMarket(round);
         }
 
-        /* Every 15 rounds : a national Economic Event (Section 2.5) */
+        /* Every 15 rounds : an Economic Event and a Regional
+           Development Card (Section 2.5, 2.10)                      */
         if(round % 15 == 0)
         {
             triggerEconomicEvent();
+            drawRegionalCard();
         }
 
         /* Every 20 rounds : a Government Regulation (Section 2.7) */
@@ -407,6 +412,9 @@ void playGame(void)
         }
 
         displayRoundSummary(round);
+
+        /* Rule-LK 36 : show current market conditions every round */
+        displayMarketConditions();
 
         if(countSolventPlayers() <= 1)
         {
@@ -426,6 +434,7 @@ void startGame(void)
 
     initializeBoard();
     initializePlayers();
+    initMarket();
 
     printf("Player 1 : %s\n", players[0].name);
     printf("Player 2 : %s\n", players[1].name);

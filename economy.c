@@ -95,11 +95,22 @@ int currentMarketValue(int propIndex)
 {
     int price;
     int depreciation;
+    PropertyGroup group;
 
     price = board[propIndex].property.purchasePrice;
     depreciation = board[propIndex].property.depreciation;
 
-    return price - (price * depreciation) / 100;
+    price = price - (price * depreciation) / 100;
+
+    /* Also apply any active Dynamic Market / Regional Card effect
+       on this property's colour group (Sections 2.9, 2.10)         */
+    if(board[propIndex].type == PROPERTY)
+    {
+        group = board[propIndex].property.group;
+        price = (price * groupValueMultiplier[group]) / 100;
+    }
+
+    return price;
 }
 
 void ageProperties(void)

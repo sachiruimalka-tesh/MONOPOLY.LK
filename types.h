@@ -250,4 +250,13 @@ extern int incomeTaxAmount;
 
 extern int antiSpeculationActive;
 
+/* Dynamic Property Market (Section 2.9) and Regional Development
+   Cards (Section 2.10) both work by temporarily multiplying a whole
+   colour group's value/rent, then reverting back to 100 (normal)
+   once the countdown ends. They share the same arrays - see market.c
+   for why, and for the one simplification this causes.              */
+extern int groupValueMultiplier[NO_GROUP];
+extern int groupRentMultiplier[NO_GROUP];
+extern int groupRoundsLeft[NO_GROUP];
+
 #endif
