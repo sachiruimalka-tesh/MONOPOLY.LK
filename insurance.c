@@ -20,7 +20,7 @@ extern Square board[BOARD_SIZE];
 
 int propertyValue(int propIndex)
 {
-    return board[propIndex].property.purchasePrice;
+    return currentMarketValue(propIndex);
 }
 
 /* Assumption: repairing storm/fire/etc damage costs 30% of the

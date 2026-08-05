@@ -75,6 +75,12 @@ void setProperty(int index,
     board[index].property.age = 0;
     board[index].property.depreciation = 0;
     board[index].property.condition = 100;
+
+    board[index].property.roundsSinceMaintenance = 0;
+    board[index].property.structurallyDamaged = 0;
+    board[index].property.preDamagePurchasePrice = 0;
+    board[index].property.preDamageBaseRent = 0;
+    board[index].property.maintenanceCostMultiplierPercent = 100;
 }
 
 void setRailway(int index, char name[], int purchasePrice)

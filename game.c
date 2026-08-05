@@ -131,6 +131,8 @@ void playTurn(int playerIndex)
 
     /* Step 1 : Resolve outstanding penalties (jail, damaged buildings) */
     tryAutoRepair(playerIndex);
+    performMaintenance(playerIndex);
+    renovateStructuralDamage(playerIndex);
 
     if(handleJail(playerIndex))
         return;
@@ -377,9 +379,17 @@ void playGame(void)
         /* End of round : insurance policies count down / expire */
         processInsuranceExpiry();
 
-        /* Every 10 rounds, a random disaster may strike (Rule-LK 10) */
+        /* End of round : properties get one round older, buildings
+           wear down a little (Rule-LK 15, 25)                      */
+        ageProperties();
+        ageBuildings();
+
+        /* Every 10 rounds : disasters and inflation (Rule-LK 10, 12) */
         if(round % 10 == 0)
+        {
             triggerDisaster();
+            applyInflation();
+        }
 
         displayRoundSummary(round);
 

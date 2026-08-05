@@ -48,25 +48,38 @@ void payTax(int playerIndex, int amount)
     RENT CALCULATION
 ========================================*/
 
-/* Rent for a normal PROPERTY square, based on houses/hotel (Table 6) */
+/* Rent for a normal PROPERTY square, based on houses/hotel (Table 6),
+   scaled down if the building's condition is poor (Table 3)          */
 int calculateRent(int position)
 {
     Property *p;
+    int rent;
+    int conditionPercent;
 
     p = &board[position].property;
 
     if(p->hotel)
-        return p->baseRent * 10;
-
-    switch(p->houses)
+        rent = p->baseRent * 10;
+    else
     {
-        case 0:  return p->baseRent * 1;
-        case 1:  return p->baseRent * 2;
-        case 2:  return p->baseRent * 3;
-        case 3:  return p->baseRent * 5;
-        case 4:  return p->baseRent * 7;
-        default: return p->baseRent;
+        switch(p->houses)
+        {
+            case 0:  rent = p->baseRent * 1; break;
+            case 1:  rent = p->baseRent * 2; break;
+            case 2:  rent = p->baseRent * 3; break;
+            case 3:  rent = p->baseRent * 5; break;
+            case 4:  rent = p->baseRent * 7; break;
+            default: rent = p->baseRent;     break;
+        }
     }
+
+    if(p->houses > 0 || p->hotel)
+    {
+        conditionPercent = rentConditionPercent(p->condition);
+        rent = (rent * conditionPercent) / 100;
+    }
+
+    return rent;
 }
 
 /* Rent for a railway station, based on Table 7 (how many the owner has) */
@@ -338,8 +351,17 @@ void payRent(int playerIndex, int diceValue)
 
     owner = board[pos].property.owner;
 
-    /* Unowned, or player landed on their own square -> no rent */
-    if(owner == -1 || owner == playerIndex)
+    /* Landing on your own square : no rent, but maybe renovate it
+       if it has aged and lost value (Rule-LK 17)                  */
+    if(owner == playerIndex)
+    {
+        if(board[pos].type == PROPERTY)
+            tryRenovateAgeDepreciation(playerIndex, pos);
+
+        return;
+    }
+
+    if(owner == -1)
         return;
 
     if(board[pos].property.mortgaged)

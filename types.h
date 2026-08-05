@@ -148,6 +148,12 @@ typedef struct
 
     int condition;
 
+    int roundsSinceMaintenance;   /* Rule-LK 27/28 : neglect counter   */
+    int structurallyDamaged;      /* Rule-LK 28 : 1 = badly neglected  */
+    int preDamagePurchasePrice;   /* remembered so we can restore it   */
+    int preDamageBaseRent;        /* remembered so we can restore it   */
+    int maintenanceCostMultiplierPercent;  /* 100 = normal, 150 = +50% */
+
 } Property;
 
 
@@ -209,5 +215,10 @@ typedef struct
 extern Square board[BOARD_SIZE];
 
 extern Player players[MAX_PLAYERS];
+
+/* Current state of the national economy - both change over time
+   (Rule-LK 12, 13). Defined in economy.c                            */
+extern int currentInflationRate;
+extern int currentLoanInterestRate;
 
 #endif

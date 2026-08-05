@@ -305,3 +305,49 @@ InsuranceType desiredInsurance(int playerIndex, int propIndex)
             return NO_INSURANCE;
     }
 }
+
+/*========================================
+    Should this player renovate a property
+    that has lost value to age (Rule-LK 17)?
+========================================*/
+
+int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent)
+{
+    switch(players[playerIndex].strategy)
+    {
+        case CONSERVATIVE_BANKER:
+
+            return (depreciationPercent >= 10);
+
+        case OPPORTUNISTIC_TRADER:
+
+            return (depreciationPercent >= 15);
+
+        case AGGRESSIVE_INVESTOR:
+        case RISK_TAKER:
+        default:
+
+            /* Not specified in the assignment for these strategies -
+               a reasonable default : renovate once quite worn down  */
+
+            return (depreciationPercent >= 20);
+    }
+}
+
+/*========================================
+    Should this player pay to maintain a
+    building right now? (Rule-LK 27)
+========================================*/
+
+int shouldMaintain(int playerIndex, int condition, int cost)
+{
+    if(players[playerIndex].strategy == RISK_TAKER)
+    {
+        /* "Ignores depreciation until repair becomes unavoidable" */
+        return (condition < 25 && players[playerIndex].cash >= cost);
+    }
+
+    /* Everyone else keeps a modest cash cushion while maintaining */
+    return (players[playerIndex].cash - cost >=
+            players[playerIndex].cash * 20 / 100);
+}

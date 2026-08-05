@@ -38,6 +38,8 @@ int shouldConstruct(int playerIndex, int cost);
 int wantsLoan(int playerIndex);
 int wantsToRepayLoan(int playerIndex);
 InsuranceType desiredInsurance(int playerIndex, int propIndex);
+int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent);
+int shouldMaintain(int playerIndex, int condition, int cost);
 
 /*=============================
         finance.c
@@ -121,5 +123,21 @@ void handleInsuranceVisit(int playerIndex);
 void tryAutoRepair(int playerIndex);
 void triggerDisaster(void);
 void processInsuranceExpiry(void);
+
+/*=============================
+        economy.c
+=============================*/
+
+int applyRate(int oldValue, int ratePercent);
+void applyInflation(void);
+
+int currentMarketValue(int propIndex);
+void ageProperties(void);
+void tryRenovateAgeDepreciation(int playerIndex, int propIndex);
+
+int rentConditionPercent(int condition);
+void ageBuildings(void);
+void performMaintenance(int playerIndex);
+void renovateStructuralDamage(int playerIndex);
 
 #endif
