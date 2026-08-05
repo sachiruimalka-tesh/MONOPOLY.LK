@@ -17,6 +17,11 @@
 #define MAX_HOUSES         4
 #define MAX_HOTELS         1
 
+#define LOAN_DURATION_ROUNDS   20
+#define LOAN_INTEREST_RATE     8   /* 8% - "Stable Economy" row of Table 9.
+                                       Will vary once we add the economy
+                                       phase (inflation / recessions).  */
+
 /*==========================
     ENUMERATIONS
 ==========================*/
@@ -114,6 +119,10 @@ typedef struct
     int hotel;
 
     int mortgaged;
+
+    int loanLocked;   /* 1 = pledged as loan collateral, cannot be
+                          sold / mortgaged / auctioned until loan is
+                          cleared (Rule-LK 3)                        */
 
     InsuranceType insurance;
 
