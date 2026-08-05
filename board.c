@@ -64,6 +64,8 @@ void setProperty(int index,
 
     board[index].property.mortgaged = 0;
 
+    board[index].property.loanLocked = 0;
+
     board[index].property.insurance = NO_INSURANCE;
 
     board[index].property.age = 0;
@@ -84,6 +86,7 @@ void setRailway(int index, char name[], int purchasePrice)
 
     board[index].property.owner = -1;
     board[index].property.mortgaged = 0;
+    board[index].property.loanLocked = 0;
 }
 
 void setUtility(int index, char name[], int purchasePrice)
@@ -99,6 +102,7 @@ void setUtility(int index, char name[], int purchasePrice)
 
     board[index].property.owner = -1;
     board[index].property.mortgaged = 0;
+    board[index].property.loanLocked = 0;
 }
 
 void setSpecialSquare(int index,
