@@ -170,6 +170,11 @@ void playTurn(int playerIndex)
             players[playerIndex].jailTurns = 0;
             break;
 
+        case BANK:
+
+            handleBankVisit(playerIndex);
+            break;
+
         default:
 
             /* GO, JAIL (just visiting), FREE_PARKING, BANK, INSURANCE */
@@ -307,6 +312,11 @@ void displayRoundSummary(int round)
         printf("Houses     : %d\n", countHouses(i));
         printf("Hotels     : %d\n", countHotels(i));
 
+        if(players[i].loan.active)
+            printf("Outstanding Loan : LKR %d\n", players[i].loan.amount);
+        else
+            printf("Outstanding Loan : None\n");
+
         if(players[i].bankrupt)
             printf("Status : BANKRUPT\n");
 
@@ -353,6 +363,9 @@ void playGame(void)
         {
             playTurn(turnOrder[i]);
         }
+
+        /* End of round : loans accrue interest and may default */
+        processLoans();
 
         displayRoundSummary(round);
 
