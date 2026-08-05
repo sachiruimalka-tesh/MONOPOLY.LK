@@ -122,3 +122,48 @@ int shouldBuyProperty(int playerIndex)
     }
 }
 
+/*========================================
+    Should this player build a house/hotel
+    right now, given its cost?
+    (Section 3 - construction preferences)
+========================================*/
+
+int shouldConstruct(int playerIndex, int cost)
+{
+    switch(players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+
+            /* Builds aggressively, just keep a small safety margin */
+
+            return (players[playerIndex].cash - cost >= 1000);
+
+        case CONSERVATIVE_BANKER:
+
+            /* Cautious - never develops hotels while a loan is active,
+               and always keeps at least 50% of cash in hand          */
+
+            if(players[playerIndex].loan.active)
+                return 0;
+
+            return (players[playerIndex].cash - cost >=
+                    players[playerIndex].cash / 2);
+
+        case RISK_TAKER:
+
+            /* Builds as early as possible, only limited by cash */
+
+            return (players[playerIndex].cash >= cost);
+
+        case OPPORTUNISTIC_TRADER:
+
+            /* Moderate - build only if it still leaves a fair reserve */
+
+            return (players[playerIndex].cash - cost >=
+                    players[playerIndex].cash * 40 / 100);
+
+        default:
+
+            return 0;
+    }
+}
