@@ -129,7 +129,9 @@ void playTurn(int playerIndex)
     printf("\n----------------------------------\n");
     printf("%s's Turn\n", players[playerIndex].name);
 
-    /* Step 1 : Resolve outstanding penalties (jail) */
+    /* Step 1 : Resolve outstanding penalties (jail, damaged buildings) */
+    tryAutoRepair(playerIndex);
+
     if(handleJail(playerIndex))
         return;
 
@@ -173,6 +175,11 @@ void playTurn(int playerIndex)
         case BANK:
 
             handleBankVisit(playerIndex);
+            break;
+
+        case INSURANCE:
+
+            handleInsuranceVisit(playerIndex);
             break;
 
         default:
@@ -366,6 +373,13 @@ void playGame(void)
 
         /* End of round : loans accrue interest and may default */
         processLoans();
+
+        /* End of round : insurance policies count down / expire */
+        processInsuranceExpiry();
+
+        /* Every 10 rounds, a random disaster may strike (Rule-LK 10) */
+        if(round % 10 == 0)
+            triggerDisaster();
 
         displayRoundSummary(round);
 

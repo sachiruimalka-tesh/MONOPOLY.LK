@@ -55,6 +55,8 @@ void initializePlayers(void)
         players[i].loan.amount = 0;
         players[i].loan.interestRate = 0;
         players[i].loan.remainingRounds = 0;
+
+        players[i].sufferedLoss = 0;
     }
 }
 
@@ -245,5 +247,61 @@ int wantsToRepayLoan(int playerIndex)
         default:
 
             return 0;
+    }
+}
+
+/*========================================
+    What insurance policy (if any) does this
+    player want for a given property?
+    Returns NO_INSURANCE if they don't want one.
+    (Section 3 - insurance preferences)
+========================================*/
+
+InsuranceType desiredInsurance(int playerIndex, int propIndex)
+{
+    int hasHotel;
+    int purchasePrice;
+
+    hasHotel = board[propIndex].property.hotel;
+    purchasePrice = board[propIndex].property.purchasePrice;
+
+    switch(players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+
+            /* Basic Insurance for houses, Comprehensive for hotels */
+
+            if(hasHotel)
+                return COMPREHENSIVE_INSURANCE;
+
+            return BASIC_INSURANCE;
+
+        case CONSERVATIVE_BANKER:
+
+            /* Always Comprehensive, for every developed property */
+
+            return COMPREHENSIVE_INSURANCE;
+
+        case RISK_TAKER:
+
+            /* Only starts insuring after already suffering a loss */
+
+            if(players[playerIndex].sufferedLoss)
+                return BASIC_INSURANCE;
+
+            return NO_INSURANCE;
+
+        case OPPORTUNISTIC_TRADER:
+
+            /* Only insures high-value developments */
+
+            if(purchasePrice >= 6000)
+                return COMPREHENSIVE_INSURANCE;
+
+            return NO_INSURANCE;
+
+        default:
+
+            return NO_INSURANCE;
     }
 }

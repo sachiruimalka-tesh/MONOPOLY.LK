@@ -37,6 +37,7 @@ int shouldBuyProperty(int playerIndex);
 int shouldConstruct(int playerIndex, int cost);
 int wantsLoan(int playerIndex);
 int wantsToRepayLoan(int playerIndex);
+InsuranceType desiredInsurance(int playerIndex, int propIndex);
 
 /*=============================
         finance.c
@@ -105,5 +106,20 @@ void handleBankVisit(int playerIndex);
 void demolishBuildingsOn(int index);
 void foreclose(int playerIndex);
 void processLoans(void);
+
+/*=============================
+        insurance.c
+=============================*/
+
+int propertyValue(int propIndex);
+int repairCost(int propIndex);
+int isCovered(InsuranceType policy, DisasterType disaster);
+int compensationPercent(InsuranceType policy);
+void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type);
+int findPropertyToInsure(int playerIndex);
+void handleInsuranceVisit(int playerIndex);
+void tryAutoRepair(int playerIndex);
+void triggerDisaster(void);
+void processInsuranceExpiry(void);
 
 #endif

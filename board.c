@@ -67,6 +67,10 @@ void setProperty(int index,
     board[index].property.loanLocked = 0;
 
     board[index].property.insurance = NO_INSURANCE;
+    board[index].property.insuranceRoundsLeft = 0;
+
+    board[index].property.damaged = 0;
+    board[index].property.repairCostOwed = 0;
 
     board[index].property.age = 0;
     board[index].property.depreciation = 0;
@@ -212,3 +216,5 @@ void displayBoard(void)
         printf("\n");
     }
 }
+
+

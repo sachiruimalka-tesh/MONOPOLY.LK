@@ -345,6 +345,13 @@ void payRent(int playerIndex, int diceValue)
     if(board[pos].property.mortgaged)
         return;
 
+    if(board[pos].type == PROPERTY && board[pos].property.damaged)
+    {
+        printf("\n%s landed on %s, but it is damaged and collects no rent.\n",
+               players[playerIndex].name, board[pos].name);
+        return;
+    }
+
     if(board[pos].type == PROPERTY)
         rent = calculateRent(pos);
     else if(board[pos].type == RAILWAY)

@@ -82,6 +82,18 @@ typedef enum
 } InsuranceType;
 
 
+/* Types of disasters (Rule-LK 10) */
+typedef enum
+{
+    FIRE,
+    FLOOD,
+    RIOT,
+    BUILDING_COLLAPSE,
+    ELECTRICAL_FAILURE
+
+} DisasterType;
+
+
 /*==========================
         LOAN
 ==========================*/
@@ -125,6 +137,11 @@ typedef struct
                           cleared (Rule-LK 3)                        */
 
     InsuranceType insurance;
+
+    int insuranceRoundsLeft;   /* counts down from 20 (Rule-LK 9) */
+
+    int damaged;         /* 1 = building is damaged and earns no rent */
+    int repairCostOwed;  /* amount owner still must pay to fix it     */
 
     int age;
     int depreciation;
@@ -178,6 +195,9 @@ typedef struct
     int utilitiesOwned;
 
     Loan loan;
+
+    int sufferedLoss;  /* has this player ever lost money to an
+                           uninsured disaster? (Risk Taker strategy) */
 
 } Player;
 
