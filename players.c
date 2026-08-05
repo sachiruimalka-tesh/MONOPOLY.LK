@@ -167,3 +167,83 @@ int shouldConstruct(int playerIndex, int cost)
             return 0;
     }
 }
+
+/*========================================
+    Does this player want to take out a loan
+    right now? (Section 3 - loan preferences)
+========================================*/
+
+int wantsLoan(int playerIndex)
+{
+    switch(players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+
+            /* Borrows whenever it can, to fund more rental income */
+
+            return 1;
+
+        case CONSERVATIVE_BANKER:
+
+            /* Avoids loans unless bankruptcy is close */
+
+            return (players[playerIndex].cash < 1000);
+
+        case RISK_TAKER:
+
+            /* Always borrows the maximum permitted */
+
+            return 1;
+
+        case OPPORTUNISTIC_TRADER:
+
+            /* Borrows only when cash is starting to run low */
+
+            return (players[playerIndex].cash < 5000);
+
+        default:
+
+            return 0;
+    }
+}
+
+/*========================================
+    Does this player want to repay some of
+    their loan right now?
+========================================*/
+
+int wantsToRepayLoan(int playerIndex)
+{
+    int loanAmount;
+
+    loanAmount = players[playerIndex].loan.amount;
+
+    switch(players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+
+            /* Only repays once cash is more than double the loan */
+
+            return (players[playerIndex].cash >= 2 * loanAmount);
+
+        case CONSERVATIVE_BANKER:
+
+            /* Repays immediately whenever possible */
+
+            return (players[playerIndex].cash >= loanAmount);
+
+        case RISK_TAKER:
+
+            /* Rarely repays - prefers to keep using the cash */
+
+            return (players[playerIndex].cash >= 5 * loanAmount);
+
+        case OPPORTUNISTIC_TRADER:
+
+            return (players[playerIndex].cash >= (loanAmount * 3) / 2);
+
+        default:
+
+            return 0;
+    }
+}
