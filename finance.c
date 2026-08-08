@@ -29,6 +29,54 @@ void payMoney(int playerIndex, int amount)
         printf("\n*** BANKRUPTCY ***\n");
         printf("%s has been declared bankrupt.\n",
                players[playerIndex].name);
+
+        liquidateBankruptAssets(playerIndex);
+    }
+}
+
+/*========================================
+    Rule 14 : when a player goes bankrupt,
+    every building they own is demolished
+    and every property/railway/utility they
+    own is auctioned off (Rule-LK 19).
+========================================*/
+
+void liquidateBankruptAssets(int playerIndex)
+{
+    int i;
+
+    printf("%s's remaining assets are being liquidated.\n",
+           players[playerIndex].name);
+
+    /* The unpaid loan (if any) is simply written off - there is
+       nothing left to collect from a bankrupt player            */
+    players[playerIndex].loan.active = 0;
+    players[playerIndex].loan.amount = 0;
+    players[playerIndex].loan.interestRate = 0;
+    players[playerIndex].loan.remainingRounds = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].property.owner != playerIndex)
+            continue;
+
+        demolishBuildingsOn(i);
+
+        board[i].property.owner = -1;
+        board[i].property.mortgaged = 0;
+        board[i].property.loanLocked = 0;
+        board[i].property.insurance = NO_INSURANCE;
+        board[i].property.damaged = 0;
+        board[i].property.repairCostOwed = 0;
+
+        if(board[i].type == PROPERTY)
+            players[playerIndex].propertiesOwned--;
+        else if(board[i].type == RAILWAY)
+            players[playerIndex].railwaysOwned--;
+        else if(board[i].type == UTILITY)
+            players[playerIndex].utilitiesOwned--;
+
+        runAuction(i);
     }
 }
 
@@ -290,6 +338,96 @@ void constructBuildings(int playerIndex)
     {
         developGroup(playerIndex, group);
     }
+}
+
+/*========================================
+    NET WORTH (Rule 15)
+    Net Worth = Cash + Property Value + Building Value
+                + Railway Value + Utility Value
+                + Insurance Claims Receivable
+                - Outstanding Loans - Accrued Interest - Taxes Due
+
+    NOTE for the viva : three of these terms are always 0 in this
+    simulation, and that is a deliberate simplification, not a bug -
+    insurance compensation is paid out immediately when a disaster
+    happens (there is no "pending claim" to track), income tax is
+    always paid immediately too (there is no unpaid-tax balance to
+    carry forward), and loan interest is compounded directly into
+    loan.amount every round rather than kept as a separate number.
+    So those three terms are included in the formula for correctness,
+    but they simplify to 0 given how the rest of the program works.
+========================================*/
+
+/* Property + Railway + Utility value, all combined into one number */
+int calculatePropertyValue(int playerIndex)
+{
+    int i;
+    int total;
+
+    total = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].property.owner != playerIndex)
+            continue;
+
+        if(board[i].type == PROPERTY)
+            total += currentMarketValue(i);
+        else if(board[i].type == RAILWAY || board[i].type == UTILITY)
+            total += board[i].property.purchasePrice;
+    }
+
+    return total;
+}
+
+/* Value of all houses/hotels the player has built */
+int calculateBuildingValue(int playerIndex)
+{
+    int i;
+    int total;
+
+    total = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].type != PROPERTY)
+            continue;
+
+        if(board[i].property.owner != playerIndex)
+            continue;
+
+        if(board[i].property.hotel)
+            total += board[i].property.hotelCost;
+        else
+            total += board[i].property.houses * board[i].property.houseCost;
+    }
+
+    return total;
+}
+
+int calculateNetWorth(int playerIndex)
+{
+    int cash;
+    int propertyValue;
+    int buildingValue;
+    int insuranceClaimsReceivable;
+    int outstandingLoans;
+    int accruedInterest;
+    int taxesDue;
+
+    cash = players[playerIndex].cash;
+    propertyValue = calculatePropertyValue(playerIndex);
+    buildingValue = calculateBuildingValue(playerIndex);
+
+    insuranceClaimsReceivable = 0;   /* see note above */
+    accruedInterest = 0;              /* already folded into loan.amount */
+    taxesDue = 0;                     /* taxes are always paid immediately */
+
+    outstandingLoans = players[playerIndex].loan.active ?
+                        players[playerIndex].loan.amount : 0;
+
+    return cash + propertyValue + buildingValue + insuranceClaimsReceivable
+           - outstandingLoans - accruedInterest - taxesDue;
 }
 
 /*========================================

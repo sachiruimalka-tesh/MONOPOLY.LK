@@ -315,6 +315,7 @@ void displayRoundSummary(int round)
     {
         printf("%s\n", players[i].name);
         printf("Cash : LKR %d\n", players[i].cash);
+        printf("Net Worth : LKR %d\n", calculateNetWorth(i));
         printf("Properties : %d\n", players[i].propertiesOwned);
         printf("Railways   : %d\n", players[i].railwaysOwned);
         printf("Utilities  : %d\n", players[i].utilitiesOwned);
@@ -425,6 +426,97 @@ void playGame(void)
 }
 
 /*========================================
+    WHO WON? (Rule 15)
+    Whoever is left solvent automatically wins.
+    If several players are still solvent when
+    the 500-round limit is reached, the one
+    with the highest net worth wins instead.
+========================================*/
+
+int determineWinner(void)
+{
+    int i;
+    int winner;
+    int bestNetWorth;
+    int netWorth;
+
+    winner = -1;
+    bestNetWorth = 0;
+
+    for(i = 0; i < MAX_PLAYERS; i++)
+    {
+        if(players[i].bankrupt)
+            continue;
+
+        netWorth = calculateNetWorth(i);
+
+        if(winner == -1 || netWorth > bestNetWorth)
+        {
+            winner = i;
+            bestNetWorth = netWorth;
+        }
+    }
+
+    /* Extremely unlikely edge case : everyone ended up bankrupt at
+       the exact same moment. Fall back to comparing everyone anyway. */
+    if(winner == -1)
+    {
+        for(i = 0; i < MAX_PLAYERS; i++)
+        {
+            netWorth = calculateNetWorth(i);
+
+            if(winner == -1 || netWorth > bestNetWorth)
+            {
+                winner = i;
+                bestNetWorth = netWorth;
+            }
+        }
+    }
+
+    return winner;
+}
+
+void displayFinalResults(void)
+{
+    int winner;
+    int i;
+
+    winner = determineWinner();
+
+    printf("\n=============================================\n");
+    printf("GAME OVER\n");
+    printf("=============================================\n");
+
+    printf("Winner\n%s\n", players[winner].name);
+    printf("Total Cash\nLKR %d\n", players[winner].cash);
+
+    printf("Total Property Value\nLKR %d\n",
+           calculatePropertyValue(winner) + calculateBuildingValue(winner));
+
+    if(players[winner].loan.active)
+        printf("Outstanding Loans\nLKR %d\n", players[winner].loan.amount);
+    else
+        printf("Outstanding Loans\nNone\n");
+
+    printf("Net Worth\nLKR %d\n", calculateNetWorth(winner));
+    printf("=============================================\n");
+
+    printf("\nFinal Standings (all players)\n");
+    printf("=============================================\n");
+
+    for(i = 0; i < MAX_PLAYERS; i++)
+    {
+        printf("\n%s\n", players[i].name);
+        printf("Cash : LKR %d\n", players[i].cash);
+        printf("Net Worth : LKR %d\n", calculateNetWorth(i));
+        printf("Properties : %d\n", players[i].propertiesOwned);
+        printf("Railways   : %d\n", players[i].railwaysOwned);
+        printf("Utilities  : %d\n", players[i].utilitiesOwned);
+        printf("Status : %s\n", players[i].bankrupt ? "Bankrupt" : "Active");
+    }
+}
+
+/*========================================
     ENTRY POINT CALLED FROM main.c
 ========================================*/
 
@@ -446,8 +538,5 @@ void startGame(void)
 
     playGame();
 
-    printf("\n=============================================\n");
-    printf("GAME OVER\n");
-    printf("=============================================\n");
-    displayPlayers();
+    displayFinalResults();
 }

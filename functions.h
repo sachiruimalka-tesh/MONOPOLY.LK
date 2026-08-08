@@ -54,7 +54,13 @@ void payTax(int playerIndex, int amount);
 
 void payMoney(int playerIndex, int amount);
 
+void liquidateBankruptAssets(int playerIndex);
+
 void receiveMoney(int playerIndex, int amount);
+
+int calculatePropertyValue(int playerIndex);
+int calculateBuildingValue(int playerIndex);
+int calculateNetWorth(int playerIndex);
 
 int calculateRent(int position);
 int calculateRailwayRent(int playerIndex);
@@ -91,6 +97,9 @@ int countSolventPlayers(void);
 
 int countHouses(int playerIndex);
 int countHotels(int playerIndex);
+
+int determineWinner(void);
+void displayFinalResults(void);
 
 /*=============================
         events.c
