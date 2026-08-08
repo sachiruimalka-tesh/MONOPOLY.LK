@@ -74,14 +74,14 @@ void obtainLoan(int playerIndex)
     /* Set up the loan */
     players[playerIndex].loan.active = 1;
     players[playerIndex].loan.amount = maxLoan;
-    players[playerIndex].loan.interestRate = currentLoanInterestRate;
+    players[playerIndex].loan.interestRate = economy.loanInterestRate;
     players[playerIndex].loan.remainingRounds = LOAN_DURATION_ROUNDS;
 
     receiveMoney(playerIndex, maxLoan);
 
     printf("\n%s obtained a secured loan.\n", players[playerIndex].name);
     printf("Loan Amount : LKR %d\n", maxLoan);
-    printf("Interest Rate : %d%%\n", currentLoanInterestRate);
+    printf("Interest Rate : %d%%\n", economy.loanInterestRate);
     printf("Duration : %d Rounds\n", LOAN_DURATION_ROUNDS);
 
     /* Pledge every eligible property as collateral (Loan Locked) */

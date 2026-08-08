@@ -10,37 +10,12 @@
 extern Player players[MAX_PLAYERS];
 extern Square board[BOARD_SIZE];
 
-/* Definitions of the "current economic condition" variables that
-   were declared extern in types.h                                */
-int hotelRentMultiplierPercent = 100;
-int hotelRentRoundsLeft = 0;
-
-int railwayRentMultiplierPercent = 100;
-int railwayRentRoundsLeft = 0;
-
-int utilityRentMultiplierPercent = 100;
-int utilityRentRoundsLeft = 0;
-
-int constructionCostMultiplierPercent = 100;
-int constructionCostRoundsLeft = 0;
-
-int insurancePremiumMultiplierPercent = 100;
-int insurancePremiumRoundsLeft = 0;
-
-int constructionSuspendedRoundsLeft = 0;
-
-int closedPropertyIndex = -1;
-int closedPropertyRoundsLeft = 0;
-
-int incomeTaxAmount = 1000;
-
-int antiSpeculationActive = 0;
-
-/* Which National Event Card is on top of the deck right now.
-   The deck is just a fixed list of 20 cards that we cycle through
-   in order - drawing a card and "returning it to the bottom" is the
-   same as simply moving on to the next index, then wrapping around. */
-int currentCardIndex = 0;
+/* Note: the hotel/railway/utility rent multipliers, construction cost
+   multiplier, insurance premium multiplier, closed-property tracker,
+   income tax amount, anti-speculation flag, and event-card position
+   used in this file are all fields of the single global `economy`
+   struct (see types.h / economy.c) - nothing declared here needs to
+   be a separate global variable any more.                            */
 
 /*========================================
     SMALL HELPERS
@@ -101,20 +76,20 @@ void executeEvent(int playerIndex)
 {
     printf("\n*** NATIONAL EVENT CARD ***\n");
 
-    switch(currentCardIndex)
+    switch(economy.currentCardIndex)
     {
         case 0:  /* Tourism Hype */
 
             printf("Tourism Hype : Hotels earn double rent for 5 rounds.\n");
-            hotelRentMultiplierPercent = 200;
-            hotelRentRoundsLeft = 5;
+            economy.hotelRentMultiplierPercent = 200;
+            economy.hotelRentRoundsLeft = 5;
             break;
 
         case 1:  /* Fuel Shortage */
 
             printf("Fuel Shortage : Railway rent doubles for 5 rounds.\n");
-            railwayRentMultiplierPercent = 200;
-            railwayRentRoundsLeft = 5;
+            economy.railwayRentMultiplierPercent = 200;
+            economy.railwayRentRoundsLeft = 5;
             break;
 
         case 2:  /* Heavy Floods */
@@ -142,11 +117,11 @@ void executeEvent(int playerIndex)
 
             if(count > 0)
             {
-                closedPropertyIndex = candidates[rand() % count];
-                closedPropertyRoundsLeft = 2;
+                economy.closedPropertyIndex = candidates[rand() % count];
+                economy.closedPropertyRoundsLeft = 2;
 
                 printf("Political Rally : %s is closed for 2 rounds.\n",
-                       board[closedPropertyIndex].name);
+                       board[economy.closedPropertyIndex].name);
             }
             else
             {
@@ -175,20 +150,20 @@ void executeEvent(int playerIndex)
 
         case 7:  /* Interest Rate Cut */
 
-            currentLoanInterestRate -= 2;
-            if(currentLoanInterestRate < 1)
-                currentLoanInterestRate = 1;
+            economy.loanInterestRate -= 2;
+            if(economy.loanInterestRate < 1)
+                economy.loanInterestRate = 1;
 
             printf("Interest Rate Cut : Loan interest reduced by 2%%. Now %d%%.\n",
-                   currentLoanInterestRate);
+                   economy.loanInterestRate);
             break;
 
         case 8:  /* Interest Rate Increase */
 
-            currentLoanInterestRate += 2;
+            economy.loanInterestRate += 2;
 
             printf("Interest Rate Increase : Loan interest increased by 2%%. Now %d%%.\n",
-                   currentLoanInterestRate);
+                   economy.loanInterestRate);
             break;
 
         case 9:  /* Tax Amnesty */
@@ -206,8 +181,8 @@ void executeEvent(int playerIndex)
         case 10:  /* Power Failure */
 
             printf("Power Failure : Utility income halved for 3 rounds.\n");
-            utilityRentMultiplierPercent = 50;
-            utilityRentRoundsLeft = 3;
+            economy.utilityRentMultiplierPercent = 50;
+            economy.utilityRentRoundsLeft = 3;
             break;
 
         case 11:  /* Foreign Funding - treating Orange group as "commercial" */
@@ -236,21 +211,21 @@ void executeEvent(int playerIndex)
         case 13:  /* Festival Season */
 
             printf("Festival Season : Hotels receive 50%% additional rent for 5 rounds.\n");
-            hotelRentMultiplierPercent = 150;
-            hotelRentRoundsLeft = 5;
+            economy.hotelRentMultiplierPercent = 150;
+            economy.hotelRentRoundsLeft = 5;
             break;
 
         case 14:  /* Labour Strike */
 
             printf("Labour Strike : Construction suspended for 2 rounds.\n");
-            constructionSuspendedRoundsLeft = 2;
+            economy.constructionSuspendedRoundsLeft = 2;
             break;
 
         case 15:  /* Insurance Discount */
 
             printf("Insurance Discount : Premiums reduced by 20%% for 10 rounds.\n");
-            insurancePremiumMultiplierPercent = 80;
-            insurancePremiumRoundsLeft = 10;
+            economy.insurancePremiumMultiplierPercent = 80;
+            economy.insurancePremiumRoundsLeft = 10;
             break;
 
         case 16:  /* Property Revaluation */
@@ -308,7 +283,7 @@ void executeEvent(int playerIndex)
     }
 
     /* "Return the card to the bottom of the deck" - just move on */
-    currentCardIndex = (currentCardIndex + 1) % 20;
+    economy.currentCardIndex = (economy.currentCardIndex + 1) % 20;
 }
 
 /*========================================
@@ -333,8 +308,8 @@ void triggerEconomicEvent(void)
             printf("Hotels receive double rent for 15 rounds.\n");
             printf("Southern Province properties increase in value by 15%%.\n");
 
-            hotelRentMultiplierPercent = 200;
-            hotelRentRoundsLeft = 15;
+            economy.hotelRentMultiplierPercent = 200;
+            economy.hotelRentRoundsLeft = 15;
             changeGroupValues(YELLOW, 15);   /* Galle Fort, Unawatuna, Hikkaduwa */
             break;
 
@@ -344,10 +319,10 @@ void triggerEconomicEvent(void)
             printf("Railway rent doubles for 15 rounds.\n");
             printf("Property development costs increase 20%% for 15 rounds.\n");
 
-            railwayRentMultiplierPercent = 200;
-            railwayRentRoundsLeft = 15;
-            constructionCostMultiplierPercent = 120;
-            constructionCostRoundsLeft = 15;
+            economy.railwayRentMultiplierPercent = 200;
+            economy.railwayRentRoundsLeft = 15;
+            economy.constructionCostMultiplierPercent = 120;
+            economy.constructionCostRoundsLeft = 15;
             break;
 
         case 2:  /* Heavy Monsoon */
@@ -356,8 +331,8 @@ void triggerEconomicEvent(void)
             printf("Insurance premiums increase for 15 rounds.\n");
             printf("Coastal properties lose 10%% value.\n");
 
-            insurancePremiumMultiplierPercent = 115;
-            insurancePremiumRoundsLeft = 15;
+            economy.insurancePremiumMultiplierPercent = 115;
+            economy.insurancePremiumRoundsLeft = 15;
             changeGroupValues(YELLOW, -10);
             break;
 
@@ -380,7 +355,7 @@ void triggerEconomicEvent(void)
                 }
             }
 
-            currentLoanInterestRate = applyRate(currentLoanInterestRate, 15);
+            economy.loanInterestRate = applyRate(economy.loanInterestRate, 15);
             break;
         }
 
@@ -390,7 +365,7 @@ void triggerEconomicEvent(void)
             printf("Property values increase 10%%. Loan interest decreases 10%%.\n");
 
             changeAllPropertyValues(10);
-            currentLoanInterestRate = applyRate(currentLoanInterestRate, -10);
+            economy.loanInterestRate = applyRate(economy.loanInterestRate, -10);
             break;
 
         case 5:  /* Government Housing Programme */
@@ -414,8 +389,8 @@ void triggerEconomicEvent(void)
             printf("Political Unrest\n");
             printf("Hotel rent drops by 50%% for 15 rounds.\n");
 
-            hotelRentMultiplierPercent = 50;
-            hotelRentRoundsLeft = 15;
+            economy.hotelRentMultiplierPercent = 50;
+            economy.hotelRentRoundsLeft = 15;
             break;
 
         default:
@@ -441,23 +416,23 @@ void triggerGovernmentRegulation(void)
     {
         case 0:  /* Increase Property Tax */
 
-            incomeTaxAmount = applyRate(incomeTaxAmount, 50);
+            economy.incomeTaxAmount = applyRate(economy.incomeTaxAmount, 50);
 
-            if(incomeTaxAmount > 5000)
-                incomeTaxAmount = 5000;
+            if(economy.incomeTaxAmount > 5000)
+                economy.incomeTaxAmount = 5000;
 
             printf("Increase Property Tax\n");
-            printf("Income Tax increased by 50%%. Now LKR %d.\n", incomeTaxAmount);
+            printf("Income Tax increased by 50%%. Now LKR %d.\n", economy.incomeTaxAmount);
             break;
 
         case 1:  /* Reduce Loan Interest */
 
-            currentLoanInterestRate -= 2;
-            if(currentLoanInterestRate < 1)
-                currentLoanInterestRate = 1;
+            economy.loanInterestRate -= 2;
+            if(economy.loanInterestRate < 1)
+                economy.loanInterestRate = 1;
 
             printf("Reduce Loan Interest\n");
-            printf("Interest decreased by 2%%. Now %d%%.\n", currentLoanInterestRate);
+            printf("Interest decreased by 2%%. Now %d%%.\n", economy.loanInterestRate);
             break;
 
         case 2:  /* Housing Subsidy */
@@ -493,8 +468,8 @@ void triggerGovernmentRegulation(void)
             printf("Railway Modernization\n");
             printf("Railway rents increase 25%% for 20 rounds.\n");
 
-            railwayRentMultiplierPercent = 125;
-            railwayRentRoundsLeft = 20;
+            economy.railwayRentMultiplierPercent = 125;
+            economy.railwayRentRoundsLeft = 20;
             break;
 
         case 5:  /* Electricity Tariff Revision */
@@ -502,8 +477,8 @@ void triggerGovernmentRegulation(void)
             printf("Electricity Tariff Revision\n");
             printf("Utility rents increase 20%% for 20 rounds.\n");
 
-            utilityRentMultiplierPercent = 120;
-            utilityRentRoundsLeft = 20;
+            economy.utilityRentMultiplierPercent = 120;
+            economy.utilityRentRoundsLeft = 20;
             break;
 
         case 6:  /* Insurance Regulation */
@@ -511,8 +486,8 @@ void triggerGovernmentRegulation(void)
             printf("Insurance Regulation\n");
             printf("Insurance premiums decrease 15%% for 20 rounds. Coverage unchanged.\n");
 
-            insurancePremiumMultiplierPercent = 85;
-            insurancePremiumRoundsLeft = 20;
+            economy.insurancePremiumMultiplierPercent = 85;
+            economy.insurancePremiumRoundsLeft = 20;
             break;
 
         case 7:  /* Anti-Speculation Act */
@@ -520,7 +495,7 @@ void triggerGovernmentRegulation(void)
             printf("Anti-Speculation Act\n");
             printf("Players may now own at most three undeveloped properties.\n");
 
-            antiSpeculationActive = 1;
+            economy.antiSpeculationActive = 1;
             break;
 
         default:
@@ -536,48 +511,48 @@ void triggerGovernmentRegulation(void)
 
 void decrementEventTimers(void)
 {
-    if(hotelRentRoundsLeft > 0)
+    if(economy.hotelRentRoundsLeft > 0)
     {
-        hotelRentRoundsLeft--;
-        if(hotelRentRoundsLeft == 0)
-            hotelRentMultiplierPercent = 100;
+        economy.hotelRentRoundsLeft--;
+        if(economy.hotelRentRoundsLeft == 0)
+            economy.hotelRentMultiplierPercent = 100;
     }
 
-    if(railwayRentRoundsLeft > 0)
+    if(economy.railwayRentRoundsLeft > 0)
     {
-        railwayRentRoundsLeft--;
-        if(railwayRentRoundsLeft == 0)
-            railwayRentMultiplierPercent = 100;
+        economy.railwayRentRoundsLeft--;
+        if(economy.railwayRentRoundsLeft == 0)
+            economy.railwayRentMultiplierPercent = 100;
     }
 
-    if(utilityRentRoundsLeft > 0)
+    if(economy.utilityRentRoundsLeft > 0)
     {
-        utilityRentRoundsLeft--;
-        if(utilityRentRoundsLeft == 0)
-            utilityRentMultiplierPercent = 100;
+        economy.utilityRentRoundsLeft--;
+        if(economy.utilityRentRoundsLeft == 0)
+            economy.utilityRentMultiplierPercent = 100;
     }
 
-    if(constructionCostRoundsLeft > 0)
+    if(economy.constructionCostRoundsLeft > 0)
     {
-        constructionCostRoundsLeft--;
-        if(constructionCostRoundsLeft == 0)
-            constructionCostMultiplierPercent = 100;
+        economy.constructionCostRoundsLeft--;
+        if(economy.constructionCostRoundsLeft == 0)
+            economy.constructionCostMultiplierPercent = 100;
     }
 
-    if(insurancePremiumRoundsLeft > 0)
+    if(economy.insurancePremiumRoundsLeft > 0)
     {
-        insurancePremiumRoundsLeft--;
-        if(insurancePremiumRoundsLeft == 0)
-            insurancePremiumMultiplierPercent = 100;
+        economy.insurancePremiumRoundsLeft--;
+        if(economy.insurancePremiumRoundsLeft == 0)
+            economy.insurancePremiumMultiplierPercent = 100;
     }
 
-    if(constructionSuspendedRoundsLeft > 0)
-        constructionSuspendedRoundsLeft--;
+    if(economy.constructionSuspendedRoundsLeft > 0)
+        economy.constructionSuspendedRoundsLeft--;
 
-    if(closedPropertyRoundsLeft > 0)
+    if(economy.closedPropertyRoundsLeft > 0)
     {
-        closedPropertyRoundsLeft--;
-        if(closedPropertyRoundsLeft == 0)
-            closedPropertyIndex = -1;
+        economy.closedPropertyRoundsLeft--;
+        if(economy.closedPropertyRoundsLeft == 0)
+            economy.closedPropertyIndex = -1;
     }
 }

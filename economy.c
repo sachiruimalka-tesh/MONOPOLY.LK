@@ -10,10 +10,44 @@
 extern Player players[MAX_PLAYERS];
 extern Square board[BOARD_SIZE];
 
-/* These two track the current state of the economy.
-   They start at "normal" values and drift over time. */
-int currentInflationRate = 0;
-int currentLoanInterestRate = LOAN_INTEREST_RATE;
+/* THE single global Economy struct instance (declared extern in
+   types.h so every file can see it). C automatically zero-fills
+   this at startup, but several fields need a non-zero starting
+   value (like interest rate = 8%, not 0%), so initEconomy() sets
+   those up properly - call it once at the very start of the game. */
+Economy economy;
+
+void initEconomy(void)
+{
+    economy.inflationRate = 0;
+    economy.loanInterestRate = LOAN_INTEREST_RATE;
+
+    economy.hotelRentMultiplierPercent = 100;
+    economy.hotelRentRoundsLeft = 0;
+
+    economy.railwayRentMultiplierPercent = 100;
+    economy.railwayRentRoundsLeft = 0;
+
+    economy.utilityRentMultiplierPercent = 100;
+    economy.utilityRentRoundsLeft = 0;
+
+    economy.constructionCostMultiplierPercent = 100;
+    economy.constructionCostRoundsLeft = 0;
+
+    economy.insurancePremiumMultiplierPercent = 100;
+    economy.insurancePremiumRoundsLeft = 0;
+
+    economy.constructionSuspendedRoundsLeft = 0;
+
+    economy.closedPropertyIndex = -1;
+    economy.closedPropertyRoundsLeft = 0;
+
+    economy.incomeTaxAmount = 1000;
+
+    economy.antiSpeculationActive = 0;
+
+    economy.currentCardIndex = 0;
+}
 
 /*========================================
     Apply New = Old * (1 + rate/100) to a
@@ -45,7 +79,7 @@ void applyInflation(void)
     int i;
 
     rate = possibleRates[rand() % 6];
-    currentInflationRate = rate;
+    economy.inflationRate = rate;
 
     printf("\n=== Inflation Update ===\n");
     printf("New Inflation Rate : %+d%%\n", rate);
@@ -79,9 +113,9 @@ void applyInflation(void)
     }
 
     /* New loans (not existing ones) follow inflation too - Rule-LK 13 */
-    currentLoanInterestRate = applyRate(currentLoanInterestRate, rate);
+    economy.loanInterestRate = applyRate(economy.loanInterestRate, rate);
 
-    printf("New Loan Interest Rate : %d%%\n", currentLoanInterestRate);
+    printf("New Loan Interest Rate : %d%%\n", economy.loanInterestRate);
 }
 
 /*========================================
@@ -107,7 +141,7 @@ int currentMarketValue(int propIndex)
     if(board[propIndex].type == PROPERTY)
     {
         group = board[propIndex].property.group;
-        price = (price * groupValueMultiplier[group]) / 100;
+        price = (price * economy.groupValueMultiplier[group]) / 100;
     }
 
     return price;

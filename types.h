@@ -216,47 +216,75 @@ extern Square board[BOARD_SIZE];
 
 extern Player players[MAX_PLAYERS];
 
-/* Current state of the national economy - both change over time
-   (Rule-LK 12, 13). Defined in economy.c                            */
-extern int currentInflationRate;
-extern int currentLoanInterestRate;
+/*==========================
+   ECONOMY (one single global instead of many)
+==========================*/
 
-/* Temporary rent bonuses/penalties from event cards, economic events,
-   and government regulations. "RoundsLeft" counts down to 0, at which
-   point the multiplier resets back to 100 (normal). If several events
-   would affect the same thing, the most recent one simply overwrites
-   the last (kept simple on purpose - no stacking).                    */
-extern int hotelRentMultiplierPercent;
-extern int hotelRentRoundsLeft;
+/* Every piece of "current state of the country's economy" is
+   grouped into this ONE struct, instead of being lots of separate
+   global variables scattered across files. There is only one
+   economy in the whole simulation, so one global struct instance
+   (defined in economy.c, used everywhere via extern) is the
+   simplest way to share it - far fewer stray globals than having
+   20+ individual int variables floating around.                   */
+typedef struct
+{
+    /* Rule-LK 12, 13 : inflation and the interest rate new loans use */
+    int inflationRate;
+    int loanInterestRate;
 
-extern int railwayRentMultiplierPercent;
-extern int railwayRentRoundsLeft;
+    /* Temporary rent bonuses/penalties from event cards, economic
+       events, and government regulations. "RoundsLeft" counts down
+       to 0, at which point the multiplier resets back to 100
+       (normal). If several events would affect the same thing, the
+       most recent one simply overwrites the last (kept simple on
+       purpose - no stacking).                                       */
+    int hotelRentMultiplierPercent;
+    int hotelRentRoundsLeft;
 
-extern int utilityRentMultiplierPercent;
-extern int utilityRentRoundsLeft;
+    int railwayRentMultiplierPercent;
+    int railwayRentRoundsLeft;
 
-extern int constructionCostMultiplierPercent;
-extern int constructionCostRoundsLeft;
+    int utilityRentMultiplierPercent;
+    int utilityRentRoundsLeft;
 
-extern int insurancePremiumMultiplierPercent;
-extern int insurancePremiumRoundsLeft;
+    int constructionCostMultiplierPercent;
+    int constructionCostRoundsLeft;
 
-extern int constructionSuspendedRoundsLeft;
+    int insurancePremiumMultiplierPercent;
+    int insurancePremiumRoundsLeft;
 
-extern int closedPropertyIndex;
-extern int closedPropertyRoundsLeft;
+    int constructionSuspendedRoundsLeft;
 
-extern int incomeTaxAmount;
+    int closedPropertyIndex;
+    int closedPropertyRoundsLeft;
 
-extern int antiSpeculationActive;
+    int incomeTaxAmount;
 
-/* Dynamic Property Market (Section 2.9) and Regional Development
-   Cards (Section 2.10) both work by temporarily multiplying a whole
-   colour group's value/rent, then reverting back to 100 (normal)
-   once the countdown ends. They share the same arrays - see market.c
-   for why, and for the one simplification this causes.              */
-extern int groupValueMultiplier[NO_GROUP];
-extern int groupRentMultiplier[NO_GROUP];
-extern int groupRoundsLeft[NO_GROUP];
+    int antiSpeculationActive;
+
+    /* Which National Event Card is on top of the deck (Appendix A) */
+    int currentCardIndex;
+
+    /* Dynamic Property Market (Section 2.9) and Regional Development
+       Cards (Section 2.10) both work by temporarily multiplying a
+       whole colour group's value/rent, then reverting back to 100
+       (normal) once the countdown ends. They share the same arrays -
+       see market.c for why, and for the one simplification this
+       causes.                                                        */
+    int groupValueMultiplier[NO_GROUP];
+    int groupRentMultiplier[NO_GROUP];
+    int groupRoundsLeft[NO_GROUP];
+
+    /* Rule-LK 33 : a group cannot be picked again for 30 rounds */
+    int groupCooldownUntilRound[NO_GROUP];
+
+    /* Rule-LK 30 : the same group cannot repeat in back-to-back reviews */
+    int lastBoomGroup;
+    int lastDeclineGroup;
+
+} Economy;
+
+extern Economy economy;
 
 #endif

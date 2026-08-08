@@ -78,7 +78,7 @@ void constructBuildings(int playerIndex);
 
 void startGame(void);
 
-void playGame(void);
+void playGame(int turnOrder[]);
 
 void playTurn(int playerIndex);
 
@@ -89,7 +89,7 @@ int rollDice(void);
 
 int handleJail(int playerIndex);
 
-void determineTurnOrder(void);
+void determineTurnOrder(int turnOrder[]);
 
 void displayRoundSummary(int round);
 
@@ -158,6 +158,7 @@ void processInsuranceExpiry(void);
 =============================*/
 
 int applyRate(int oldValue, int ratePercent);
+void initEconomy(void);
 void applyInflation(void);
 
 int currentMarketValue(int propIndex);

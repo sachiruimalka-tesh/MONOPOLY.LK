@@ -145,10 +145,10 @@ void initializeBoard(void)
 
     /* ---------- Railways ---------- */
 
-    setRailway(5, "Colombo Fort Railway Station", 2000);
-    setRailway(15, "Kandy Railway Station", 2000);
-    setRailway(25, "Galle Railway Station", 2000);
-    setRailway(35, "Jaffna Railway Station", 2000);
+    setRailway(5, "Colombo Fort Railway Station", 1500);
+    setRailway(15, "Kandy Railway Station", 1500);
+    setRailway(25, "Galle Railway Station", 1500);
+    setRailway(35, "Jaffna Railway Station", 1500);
 
     /* ---------- Utilities ---------- */
 

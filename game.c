@@ -12,9 +12,6 @@
 extern Square board[BOARD_SIZE];
 extern Player players[MAX_PLAYERS];
 
-/* Stores the order in which players take turns (player indices) */
-int turnOrder[MAX_PLAYERS];
-
 /*========================================
     DICE
 ========================================*/
@@ -163,7 +160,7 @@ void playTurn(int playerIndex)
 
         case TAX:
 
-            payTax(playerIndex, incomeTaxAmount);
+            payTax(playerIndex, economy.incomeTaxAmount);
             break;
 
         case GO_TO_JAIL:
@@ -199,7 +196,7 @@ void playTurn(int playerIndex)
     TURN ORDER (Rule 2)
 ========================================*/
 
-void determineTurnOrder(void)
+void determineTurnOrder(int turnOrder[])
 {
     int rolls[MAX_PLAYERS];
     int i, j, temp;
@@ -358,7 +355,7 @@ int countSolventPlayers(void)
     MAIN GAME LOOP
 ========================================*/
 
-void playGame(void)
+void playGame(int turnOrder[])
 {
     int round;
     int i;
@@ -522,10 +519,16 @@ void displayFinalResults(void)
 
 void startGame(void)
 {
+    /* Which order the 4 players take their turns in. This used to be
+       a global array; now it is just a normal local variable that
+       gets passed to the functions that need it.                    */
+    int turnOrder[MAX_PLAYERS];
+
     srand((unsigned)time(NULL));
 
     initializeBoard();
     initializePlayers();
+    initEconomy();
     initMarket();
 
     printf("Player 1 : %s\n", players[0].name);
@@ -534,9 +537,9 @@ void startGame(void)
     printf("Player 4 : %s\n", players[3].name);
     printf("\nEach player begins with LKR %d.\n", START_MONEY);
 
-    determineTurnOrder();
+    determineTurnOrder(turnOrder);
 
-    playGame();
+    playGame(turnOrder);
 
     displayFinalResults();
 }
