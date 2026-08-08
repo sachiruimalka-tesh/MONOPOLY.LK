@@ -93,6 +93,128 @@ void payTax(int playerIndex, int amount)
 }
 
 /*========================================
+    MORTGAGING (Rule 7, and the "Mortgage
+    Value" / "Mortgage Status" property
+    attributes from Section 1.1)
+
+    A player can mortgage an undeveloped
+    property/railway/utility they own to get
+    quick cash. A mortgaged square earns no
+    rent (Rule 7) and cannot be used as loan
+    collateral (Rule-LK 1) until it is
+    redeemed by paying back the mortgage
+    value plus 10% interest.
+========================================*/
+
+/* Find one property this player could mortgage right now */
+int findPropertyToMortgage(int playerIndex)
+{
+    int i;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].property.owner != playerIndex)
+            continue;
+
+        if(board[i].property.mortgaged)
+            continue;
+
+        if(board[i].property.loanLocked)
+            continue;   /* already pledged to a loan */
+
+        /* A developed property must be undeveloped before it can be
+           mortgaged (standard Monopoly rule - can't mortgage land
+           that still has houses/a hotel standing on it)             */
+        if(board[i].type == PROPERTY &&
+           (board[i].property.houses > 0 || board[i].property.hotel))
+        {
+            continue;
+        }
+
+        return i;
+    }
+
+    return -1;
+}
+
+/* Find one of this player's mortgaged properties */
+int findMortgagedProperty(int playerIndex)
+{
+    int i;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(board[i].property.owner == playerIndex &&
+           board[i].property.mortgaged)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void mortgageProperty(int playerIndex)
+{
+    int propIndex;
+
+    if(!shouldMortgage(playerIndex))
+        return;
+
+    propIndex = findPropertyToMortgage(playerIndex);
+
+    if(propIndex == -1)
+        return;
+
+    board[propIndex].property.mortgaged = 1;
+
+    receiveMoney(playerIndex, board[propIndex].property.mortgageValue);
+
+    printf("\n%s mortgaged %s for LKR %d.\n",
+           players[playerIndex].name,
+           board[propIndex].name,
+           board[propIndex].property.mortgageValue);
+}
+
+void redeemMortgage(int playerIndex)
+{
+    int propIndex;
+    int redeemCost;
+
+    propIndex = findMortgagedProperty(playerIndex);
+
+    if(propIndex == -1)
+        return;
+
+    /* Standard rule : pay back the mortgage value plus 10% interest */
+    redeemCost = (board[propIndex].property.mortgageValue * 110) / 100;
+
+    if(!shouldRedeemMortgage(playerIndex, redeemCost))
+        return;
+
+    if(players[playerIndex].cash < redeemCost)
+        return;
+
+    payMoney(playerIndex, redeemCost);
+
+    board[propIndex].property.mortgaged = 0;
+
+    printf("\n%s redeemed the mortgage on %s for LKR %d.\n",
+           players[playerIndex].name,
+           board[propIndex].name,
+           redeemCost);
+}
+
+/* Step 7 of a turn : "Complete financial transactions" (Rule 3) */
+void handleMortgageDecisions(int playerIndex)
+{
+    /* Try to pay off a mortgage first if things are going well,
+       otherwise consider raising quick cash by mortgaging something */
+    redeemMortgage(playerIndex);
+    mortgageProperty(playerIndex);
+}
+
+/*========================================
     RENT CALCULATION
 ========================================*/
 

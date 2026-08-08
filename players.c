@@ -284,12 +284,19 @@ InsuranceType desiredInsurance(int playerIndex, int propIndex)
 
         case RISK_TAKER:
 
-            /* Only starts insuring after already suffering a loss */
+            /* Only starts insuring after already suffering a loss.
+               The spec doesn't say which policy this strategy picks,
+               so : Business Interruption is the only policy that
+               applies to hotels (Section 1.2), so use that for
+               hotels, and the cheaper Basic policy for houses.        */
 
-            if(players[playerIndex].sufferedLoss)
-                return BASIC_INSURANCE;
+            if(!players[playerIndex].sufferedLoss)
+                return NO_INSURANCE;
 
-            return NO_INSURANCE;
+            if(hasHotel)
+                return BUSINESS_INTERRUPTION;
+
+            return BASIC_INSURANCE;
 
         case OPPORTUNISTIC_TRADER:
 
@@ -397,4 +404,53 @@ int willingToBid(int playerIndex, int propIndex, int candidateBid)
 
             return 0;
     }
+}
+
+/*========================================
+    Is this player desperate enough to
+    mortgage a property for quick cash?
+    (Rule 7 - each strategy has a different
+    idea of "desperate")
+========================================*/
+
+int shouldMortgage(int playerIndex)
+{
+    switch(players[playerIndex].strategy)
+    {
+        case CONSERVATIVE_BANKER:
+
+            /* Keeps a big cash cushion, so acts early */
+
+            return (players[playerIndex].cash < 3000);
+
+        case RISK_TAKER:
+
+            /* Prefers loans over mortgaging - only as a last resort */
+
+            return (players[playerIndex].cash < 500);
+
+        case AGGRESSIVE_INVESTOR:
+
+            return (players[playerIndex].cash < 1000);
+
+        case OPPORTUNISTIC_TRADER:
+
+            return (players[playerIndex].cash < 1200);
+
+        default:
+
+            return 0;
+    }
+}
+
+/*========================================
+    Is this player comfortable enough to
+    redeem (pay off) a mortgaged property?
+========================================*/
+
+int shouldRedeemMortgage(int playerIndex, int redeemCost)
+{
+    /* Simple rule for everyone : only redeem if there's still a
+       healthy amount of cash left over afterwards                */
+    return (players[playerIndex].cash - redeemCost >= redeemCost);
 }

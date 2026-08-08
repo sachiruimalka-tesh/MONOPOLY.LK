@@ -190,6 +190,10 @@ void playTurn(int playerIndex)
 
     /* Step 6 : Construct buildings if eligible (Rules 8, 9, 10) */
     constructBuildings(playerIndex);
+
+    /* Step 7 : Complete financial transactions (Rule 3) - mortgage or
+       redeem a property if the player's situation calls for it       */
+    handleMortgageDecisions(playerIndex);
 }
 
 /*========================================

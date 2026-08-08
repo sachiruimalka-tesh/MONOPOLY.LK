@@ -41,6 +41,8 @@ InsuranceType desiredInsurance(int playerIndex, int propIndex);
 int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent);
 int shouldMaintain(int playerIndex, int condition, int cost);
 int willingToBid(int playerIndex, int propIndex, int candidateBid);
+int shouldMortgage(int playerIndex);
+int shouldRedeemMortgage(int playerIndex, int redeemCost);
 
 /*=============================
         finance.c
@@ -61,6 +63,12 @@ void receiveMoney(int playerIndex, int amount);
 int calculatePropertyValue(int playerIndex);
 int calculateBuildingValue(int playerIndex);
 int calculateNetWorth(int playerIndex);
+
+int findPropertyToMortgage(int playerIndex);
+int findMortgagedProperty(int playerIndex);
+void mortgageProperty(int playerIndex);
+void redeemMortgage(int playerIndex);
+void handleMortgageDecisions(int playerIndex);
 
 int calculateRent(int position);
 int calculateRailwayRent(int playerIndex);
