@@ -40,6 +40,7 @@ int wantsToRepayLoan(int playerIndex);
 InsuranceType desiredInsurance(int playerIndex, int propIndex);
 int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent);
 int shouldMaintain(int playerIndex, int condition, int cost);
+int willingToBid(int playerIndex, int propIndex, int candidateBid);
 
 /*=============================
         finance.c
@@ -158,5 +159,12 @@ int rentConditionPercent(int condition);
 void ageBuildings(void);
 void performMaintenance(int playerIndex);
 void renovateStructuralDamage(int playerIndex);
+
+/*=============================
+        auction.c
+=============================*/
+
+int getAskingValue(int propIndex);
+void runAuction(int propIndex);
 
 #endif

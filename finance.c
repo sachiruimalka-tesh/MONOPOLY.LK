@@ -337,22 +337,22 @@ void buyProperty(int playerIndex)
     if(board[pos].property.owner != -1)
         return;
 
-    if(!shouldBuyProperty(playerIndex))
-        return;
-
-    if(antiSpeculationActive && board[pos].type == PROPERTY)
-    {
-        if(countUndevelopedProperties(playerIndex) >= 3)
-            return;   /* Rule-LK 24 : Anti-Speculation Act */
-    }
-
     price = board[pos].property.purchasePrice;
 
     if(board[pos].type == PROPERTY)
         price = currentMarketValue(pos);
 
-    if(players[playerIndex].cash < price)
+    /* Rule 5 : if the player does not buy it directly (for ANY reason -
+       their strategy declined, they can't afford it, or the
+       Anti-Speculation Act blocks them) the property goes to auction
+       instead of just sitting there unbought forever.                  */
+    if(!shouldBuyProperty(playerIndex) || players[playerIndex].cash < price ||
+       (antiSpeculationActive && board[pos].type == PROPERTY &&
+        countUndevelopedProperties(playerIndex) >= 3))
+    {
+        runAuction(pos);
         return;
+    }
 
     payMoney(playerIndex, price);
 

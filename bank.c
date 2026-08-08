@@ -213,7 +213,9 @@ void foreclose(int playerIndex)
 
         if(board[i].property.loanLocked)
         {
-            /* Pledged property : goes back to the Bank */
+            /* Pledged property : goes back to the Bank, then straight
+               to auction (Rule-LK 19 : "foreclosed assets return to
+               the Bank" is one of the auction triggers)              */
             printf("%s (pledged collateral) transferred to the Bank.\n",
                    board[i].name);
 
@@ -230,6 +232,8 @@ void foreclose(int playerIndex)
                 players[playerIndex].railwaysOwned--;
             else if(board[i].type == UTILITY)
                 players[playerIndex].utilitiesOwned--;
+
+            runAuction(i);
         }
         else
         {

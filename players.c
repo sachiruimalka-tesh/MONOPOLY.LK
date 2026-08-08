@@ -351,3 +351,50 @@ int shouldMaintain(int playerIndex, int condition, int cost)
     return (players[playerIndex].cash - cost >=
             players[playerIndex].cash * 20 / 100);
 }
+
+/*========================================
+    Is this player willing to bid this
+    amount at an auction? (Section 3,
+    Rule-LK 19-22)
+========================================*/
+
+int willingToBid(int playerIndex, int propIndex, int candidateBid)
+{
+    int marketValue;
+
+    if(players[playerIndex].cash < candidateBid)
+        return 0;   /* Rule-LK 22 : can never bid more than you have */
+
+    marketValue = board[propIndex].property.purchasePrice;
+
+    switch(players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+
+            /* Bids aggressively up to 120% of market value */
+
+            return (candidateBid <= (marketValue * 120) / 100);
+
+        case CONSERVATIVE_BANKER:
+
+            /* Only bids while the price is still below market value */
+
+            return (candidateBid < marketValue);
+
+        case RISK_TAKER:
+
+            /* Bids until cash runs out, no other limit */
+
+            return 1;
+
+        case OPPORTUNISTIC_TRADER:
+
+            /* Only wants a bargain - stops well below market value */
+
+            return (candidateBid <= (marketValue * 80) / 100);
+
+        default:
+
+            return 0;
+    }
+}
