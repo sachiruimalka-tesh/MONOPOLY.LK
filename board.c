@@ -143,6 +143,21 @@ void setSpecialSquare(GameState game[],
     game[0].board[index].type = type;
 
     strcpy(game[0].board[index].name, name);
+
+    /* BUG FIX : special squares (GO, TAX, EVENT, JAIL, BANK,
+       INSURANCE, etc.) were never given an owner. Since C fills
+       unused fields with 0, `owner` defaulted to 0 - but 0 is a
+       real player index (Aggressive Investor), NOT "nobody"! This
+       made every function that scans the board for "does player 0
+       own this square?" incorrectly think Aggressive Investor owned
+       every special square on the board. -1 is the correct value
+       for "nobody owns this," matching every other setXxx function. */
+    game[0].board[index].property.owner = -1;
+    game[0].board[index].property.mortgaged = 0;
+    game[0].board[index].property.loanLocked = 0;
+    game[0].board[index].property.houses = 0;
+    game[0].board[index].property.hotel = 0;
+    game[0].board[index].property.insurance = NO_INSURANCE;
 }
 
 void initializeBoard(GameState game[])
