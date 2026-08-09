@@ -6,14 +6,14 @@
 #include "functions.h"
 
 /*========================================
-        GLOBAL VARIABLES
+    NOTE: no global variables, no pointers - everything reads and
+    writes through the GameState array parameter `game`.
 ========================================*/
-
-extern Square board[BOARD_SIZE];
-extern Player players[MAX_PLAYERS];
 
 /*========================================
     DICE
+    (This doesn't touch the game state at all, so it doesn't need
+    the `game` parameter.)
 ========================================*/
 
 int rollDice(void)
@@ -26,245 +26,331 @@ int rollDice(void)
 
 /*========================================
     MOVEMENT
+    Returns 1 if this move passed or landed
+    on GO, 0 otherwise - the round-counting
+    logic in playGame() needs to know this.
 ========================================*/
 
-void movePlayer(int playerIndex, int dice)
+int movePlayer(GameState game[], int playerIndex, int dice)
 {
     int oldPosition;
+    int passedGo;
 
-    oldPosition = players[playerIndex].position;
+    oldPosition = game[0].players[playerIndex].position;
 
-    players[playerIndex].position = (oldPosition + dice) % BOARD_SIZE;
+    game[0].players[playerIndex].position = (oldPosition + dice) % BOARD_SIZE;
 
     printf("%s moves from Square %d to Square %d (%s)\n",
-           players[playerIndex].name,
+           game[0].players[playerIndex].name,
            oldPosition,
-           players[playerIndex].position,
-           board[players[playerIndex].position].name);
+           game[0].players[playerIndex].position,
+           game[0].board[game[0].players[playerIndex].position].name);
+
+    passedGo = 0;
 
     /* Passed or landed exactly on GO */
     if(oldPosition + dice >= BOARD_SIZE)
     {
-        receiveMoney(playerIndex, GO_MONEY);
+        passedGo = 1;
+
+        receiveMoney(game, playerIndex, GO_MONEY);
 
         printf("%s passed GO and collected LKR %d\n",
-               players[playerIndex].name,
+               game[0].players[playerIndex].name,
                GO_MONEY);
 
         printf("Current Balance : LKR %d\n",
-               players[playerIndex].cash);
+               game[0].players[playerIndex].cash);
     }
+
+    return passedGo;
 }
 
 /*========================================
     JAIL
-    Returns 1 if the player is still stuck in jail
-    (so playTurn should skip the rest of the turn),
-    Returns 0 if the player is free to move normally.
+    Return codes:
+      0 = player was not in jail - proceed with a normal turn
+      1 = player is still stuck in jail (or just paid bail) -
+          the turn ends right here, with no movement at all
+      2 = player rolled doubles, escaped, and that escape move
+          passed GO (a normal turn still follows, same as before)
+      3 = player rolled doubles, escaped, but did NOT pass GO
 ========================================*/
 
-int handleJail(int playerIndex)
+int handleJail(GameState game[], int playerIndex)
 {
     int die1, die2;
+    int passedGo;
 
-    if(!players[playerIndex].inJail)
+    if(!game[0].players[playerIndex].inJail)
         return 0;
 
     die1 = rand() % 6 + 1;
     die2 = rand() % 6 + 1;
 
     printf("%s is in Jail. Rolled %d and %d.\n",
-           players[playerIndex].name, die1, die2);
+           game[0].players[playerIndex].name, die1, die2);
 
     if(die1 == die2)
     {
         printf("Doubles! %s is released from Jail.\n",
-               players[playerIndex].name);
+               game[0].players[playerIndex].name);
 
-        players[playerIndex].inJail = 0;
-        players[playerIndex].jailTurns = 0;
+        game[0].players[playerIndex].inJail = 0;
+        game[0].players[playerIndex].jailTurns = 0;
 
-        movePlayer(playerIndex, die1 + die2);
-        return 0;
+        passedGo = movePlayer(game, playerIndex, die1 + die2);
+
+        if(passedGo)
+            return 2;
+
+        return 3;
     }
 
-    players[playerIndex].jailTurns++;
+    game[0].players[playerIndex].jailTurns++;
 
-    if(players[playerIndex].jailTurns >= 3)
+    if(game[0].players[playerIndex].jailTurns >= 3)
     {
         printf("%s pays bail of LKR %d and is released from Jail.\n",
-               players[playerIndex].name, JAIL_BAIL);
+               game[0].players[playerIndex].name, JAIL_BAIL);
 
-        payMoney(playerIndex, JAIL_BAIL);
+        payMoney(game, playerIndex, JAIL_BAIL);
 
-        players[playerIndex].inJail = 0;
-        players[playerIndex].jailTurns = 0;
+        game[0].players[playerIndex].inJail = 0;
+        game[0].players[playerIndex].jailTurns = 0;
 
         /* Player is released but does not move this turn */
         return 1;
     }
 
     printf("%s remains in Jail (%d/3 turns).\n",
-           players[playerIndex].name,
-           players[playerIndex].jailTurns);
+           game[0].players[playerIndex].name,
+           game[0].players[playerIndex].jailTurns);
 
     return 1;
 }
 
 /*========================================
     ONE PLAYER'S TURN
+    Returns 1 if the player passed/landed on
+    GO at any point during this turn, 0 if not.
 ========================================*/
 
-void playTurn(int playerIndex)
+int playTurn(GameState game[], int playerIndex)
 {
     int dice;
     int pos;
+    int passedGo;
+    int jailResult;
 
-    if(players[playerIndex].bankrupt)
-        return;
+    if(game[0].players[playerIndex].bankrupt)
+        return 0;
 
     printf("\n----------------------------------\n");
-    printf("%s's Turn\n", players[playerIndex].name);
+    printf("%s's Turn\n", game[0].players[playerIndex].name);
 
     /* Step 1 : Resolve outstanding penalties (jail, damaged buildings) */
-    tryAutoRepair(playerIndex);
-    performMaintenance(playerIndex);
-    renovateStructuralDamage(playerIndex);
+    tryAutoRepair(game, playerIndex);
+    performMaintenance(game, playerIndex);
+    renovateStructuralDamage(game, playerIndex);
 
-    if(handleJail(playerIndex))
-        return;
+    passedGo = 0;
 
-    /* Step 2 & 3 : Roll dice and move */
+    jailResult = handleJail(game, playerIndex);
+
+    if(jailResult == 1)
+        return 0;   /* still stuck in jail (or just paid bail) - turn over */
+
+    if(jailResult == 2)
+        passedGo = 1;   /* escaped via doubles, and that move passed GO */
+
+    /* Step 2 & 3 : Roll dice and move (this always happens, even right
+       after escaping jail via doubles - matches the traditional rule
+       that you then still take a normal turn straight away)          */
     dice = rollDice();
-    printf("%s rolled %d.\n", players[playerIndex].name, dice);
+    printf("%s rolled %d.\n", game[0].players[playerIndex].name, dice);
 
-    movePlayer(playerIndex, dice);
+    if(movePlayer(game, playerIndex, dice))
+        passedGo = 1;
 
     /* Step 4 : Resolve landing action */
-    pos = players[playerIndex].position;
+    pos = game[0].players[playerIndex].position;
 
-    switch(board[pos].type)
+    switch(game[0].board[pos].type)
     {
         case PROPERTY:
         case RAILWAY:
         case UTILITY:
 
-            payRent(playerIndex, dice);
-            buyProperty(playerIndex);
+            payRent(game, playerIndex, dice);
+            buyProperty(game, playerIndex);
             break;
 
         case EVENT:
 
-            executeEvent(playerIndex);
+            executeEvent(game, playerIndex);
             break;
 
         case TAX:
 
-            payTax(playerIndex, economy.incomeTaxAmount);
+            payTax(game, playerIndex, game[0].economy.incomeTaxAmount);
             break;
 
         case GO_TO_JAIL:
 
-            printf("%s is sent to Jail!\n", players[playerIndex].name);
-            players[playerIndex].position = 10;
-            players[playerIndex].inJail = 1;
-            players[playerIndex].jailTurns = 0;
+            printf("%s is sent to Jail!\n", game[0].players[playerIndex].name);
+            game[0].players[playerIndex].position = 10;
+            game[0].players[playerIndex].inJail = 1;
+            game[0].players[playerIndex].jailTurns = 0;
             break;
 
         case BANK:
 
-            handleBankVisit(playerIndex);
+            handleBankVisit(game, playerIndex);
             break;
 
         case INSURANCE:
 
-            handleInsuranceVisit(playerIndex);
+            handleInsuranceVisit(game, playerIndex);
             break;
 
         default:
 
-            /* GO, JAIL (just visiting), FREE_PARKING, BANK, INSURANCE */
-            /* Bank / Insurance actions are added in later phases      */
+            /* GO, JAIL (just visiting), FREE_PARKING */
             break;
     }
 
     /* Step 6 : Construct buildings if eligible (Rules 8, 9, 10) */
-    constructBuildings(playerIndex);
+    constructBuildings(game, playerIndex);
 
     /* Step 7 : Complete financial transactions (Rule 3) - mortgage or
        redeem a property if the player's situation calls for it       */
-    handleMortgageDecisions(playerIndex);
+    handleMortgageDecisions(game, playerIndex);
+
+    return passedGo;
 }
 
 /*========================================
     TURN ORDER (Rule 2)
+
+    Only players who are ACTUALLY TIED with each other re-roll -
+    anyone whose rank is already clear from the first roll keeps it.
+    For example, if Aggressive=9, Conservative=7, Risk=4,
+    Opportunistic=7 : Aggressive is locked into 1st place and Risk is
+    locked into last place immediately. Only Conservative and
+    Opportunistic (tied at 7) roll again against each other to decide
+    2nd and 3rd place. This is done with a small recursive helper,
+    resolveGroup(), which resolves one group of (possibly tied)
+    players into a strict order, and calls itself again for any
+    smaller tied sub-group it finds.
 ========================================*/
 
-void determineTurnOrder(int turnOrder[])
+/* Resolves one group of (possibly tied) players into a strict order,
+   writing the result into output[] starting at position startIndex.
+   Returns how many players it wrote - this replaces using a pointer
+   to a shared counter: the caller just adds up the return value
+   instead of a function reaching back and modifying the caller's
+   variable directly.                                                */
+int resolveGroup(GameState game[], int groupPlayers[], int groupSize,
+                  int output[], int startIndex)
 {
     int rolls[MAX_PLAYERS];
-    int i, j, temp;
-    int tie;
+    int i, j, k, temp;
+    int runStart, runLength;
+    int tiedPlayers[MAX_PLAYERS];
+    int written;
 
-    printf("\nDetermining the First Player\n");
+    written = 0;
 
-    do
+    for(i = 0; i < groupSize; i++)
     {
-        tie = 0;
+        rolls[i] = rollDice();
+        printf("%s rolls %d.\n", game[0].players[groupPlayers[i]].name, rolls[i]);
+    }
 
-        for(i = 0; i < MAX_PLAYERS; i++)
-        {
-            rolls[i] = rollDice();
-            printf("%s rolls %d.\n", players[i].name, rolls[i]);
-        }
-
-        /* If any two players rolled the same number, everyone re-rolls */
-        for(i = 0; i < MAX_PLAYERS && !tie; i++)
-        {
-            for(j = i + 1; j < MAX_PLAYERS; j++)
-            {
-                if(rolls[i] == rolls[j])
-                {
-                    tie = 1;
-                    break;
-                }
-            }
-        }
-
-        if(tie)
-            printf("Tie detected. Rolling again.\n\n");
-
-    } while(tie);
-
-    /* Start with players in index order, then sort by roll (highest first) */
-    for(i = 0; i < MAX_PLAYERS; i++)
-        turnOrder[i] = i;
-
-    for(i = 0; i < MAX_PLAYERS - 1; i++)
+    /* Sort this group's players by roll, highest first (a simple
+       bubble sort - swap neighbours if they're in the wrong order,
+       moving both the roll and the matching player index together) */
+    for(i = 0; i < groupSize - 1; i++)
     {
-        for(j = 0; j < MAX_PLAYERS - 1 - i; j++)
+        for(j = 0; j < groupSize - 1 - i; j++)
         {
-            if(rolls[turnOrder[j]] < rolls[turnOrder[j + 1]])
+            if(rolls[j] < rolls[j + 1])
             {
-                temp = turnOrder[j];
-                turnOrder[j] = turnOrder[j + 1];
-                turnOrder[j + 1] = temp;
+                temp = rolls[j];
+                rolls[j] = rolls[j + 1];
+                rolls[j + 1] = temp;
+
+                temp = groupPlayers[j];
+                groupPlayers[j] = groupPlayers[j + 1];
+                groupPlayers[j + 1] = temp;
             }
         }
     }
 
-    printf("\n%s will begin the game.\n", players[turnOrder[0]].name);
+    /* Walk through the sorted list. A run of two or more equal rolls
+       is a tie - only that run re-rolls, against each other only.   */
+    i = 0;
+
+    while(i < groupSize)
+    {
+        runStart = i;
+        runLength = 1;
+
+        while(runStart + runLength < groupSize &&
+              rolls[runStart + runLength] == rolls[runStart])
+        {
+            runLength++;
+        }
+
+        if(runLength == 1)
+        {
+            /* No tie here - this player's place is fully decided */
+            output[startIndex + written] = groupPlayers[runStart];
+            written++;
+        }
+        else
+        {
+            printf("Tie detected between %d players at %d. Rolling again.\n",
+                   runLength, rolls[runStart]);
+
+            for(k = 0; k < runLength; k++)
+                tiedPlayers[k] = groupPlayers[runStart + k];
+
+            written += resolveGroup(game, tiedPlayers, runLength,
+                                     output, startIndex + written);
+        }
+
+        i = runStart + runLength;
+    }
+
+    return written;
+}
+
+void determineTurnOrder(GameState game[], int turnOrder[])
+{
+    int allPlayers[MAX_PLAYERS];
+    int i;
+
+    for(i = 0; i < MAX_PLAYERS; i++)
+        allPlayers[i] = i;
+
+    printf("\nDetermining the First Player\n");
+
+    resolveGroup(game, allPlayers, MAX_PLAYERS, turnOrder, 0);
+
+    printf("\n%s will begin the game.\n", game[0].players[turnOrder[0]].name);
 
     printf("\nTurn order:\n");
     for(i = 0; i < MAX_PLAYERS; i++)
-        printf("%s\n", players[turnOrder[i]].name);
+        printf("%s\n", game[0].players[turnOrder[i]].name);
 }
 
 /*========================================
-    ROUND SUMMARY (simple version for now)
+    ROUND SUMMARY
 ========================================*/
 
-int countHouses(int playerIndex)
+int countHouses(GameState game[], int playerIndex)
 {
     int i;
     int count;
@@ -273,18 +359,18 @@ int countHouses(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY &&
-           board[i].property.owner == playerIndex &&
-           !board[i].property.hotel)
+        if(game[0].board[i].type == PROPERTY &&
+           game[0].board[i].property.owner == playerIndex &&
+           !game[0].board[i].property.hotel)
         {
-            count += board[i].property.houses;
+            count += game[0].board[i].property.houses;
         }
     }
 
     return count;
 }
 
-int countHotels(int playerIndex)
+int countHotels(GameState game[], int playerIndex)
 {
     int i;
     int count;
@@ -293,9 +379,9 @@ int countHotels(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY &&
-           board[i].property.owner == playerIndex &&
-           board[i].property.hotel)
+        if(game[0].board[i].type == PROPERTY &&
+           game[0].board[i].property.owner == playerIndex &&
+           game[0].board[i].property.hotel)
         {
             count++;
         }
@@ -304,7 +390,7 @@ int countHotels(int playerIndex)
     return count;
 }
 
-void displayRoundSummary(int round)
+void displayRoundSummary(GameState game[], int round)
 {
     int i;
 
@@ -314,21 +400,21 @@ void displayRoundSummary(int round)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
-        printf("%s\n", players[i].name);
-        printf("Cash : LKR %d\n", players[i].cash);
-        printf("Net Worth : LKR %d\n", calculateNetWorth(i));
-        printf("Properties : %d\n", players[i].propertiesOwned);
-        printf("Railways   : %d\n", players[i].railwaysOwned);
-        printf("Utilities  : %d\n", players[i].utilitiesOwned);
-        printf("Houses     : %d\n", countHouses(i));
-        printf("Hotels     : %d\n", countHotels(i));
+        printf("%s\n", game[0].players[i].name);
+        printf("Cash : LKR %d\n", game[0].players[i].cash);
+        printf("Net Worth : LKR %d\n", calculateNetWorth(game, i));
+        printf("Properties : %d\n", game[0].players[i].propertiesOwned);
+        printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
+        printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
+        printf("Houses     : %d\n", countHouses(game, i));
+        printf("Hotels     : %d\n", countHotels(game, i));
 
-        if(players[i].loan.active)
-            printf("Outstanding Loan : LKR %d\n", players[i].loan.amount);
+        if(game[0].players[i].loan.active)
+            printf("Outstanding Loan : LKR %d\n", game[0].players[i].loan.amount);
         else
             printf("Outstanding Loan : None\n");
 
-        if(players[i].bankrupt)
+        if(game[0].players[i].bankrupt)
             printf("Status : BANKRUPT\n");
 
         printf("---------------------------------------------\n");
@@ -339,7 +425,7 @@ void displayRoundSummary(int round)
     COUNT PLAYERS STILL SOLVENT
 ========================================*/
 
-int countSolventPlayers(void)
+int countSolventPlayers(GameState game[])
 {
     int i;
     int count;
@@ -348,7 +434,7 @@ int countSolventPlayers(void)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
-        if(!players[i].bankrupt)
+        if(!game[0].players[i].bankrupt)
             count++;
     }
 
@@ -357,71 +443,131 @@ int countSolventPlayers(void)
 
 /*========================================
     MAIN GAME LOOP
+
+    IMPORTANT : a "round" is NOT simply "each of the 4 players took
+    one turn." A round only finishes once EVERY player still in the
+    game has passed (or landed on) GO at least once. Since players
+    move different distances each turn, this usually takes each
+    player several turns, not just one, to complete a single round -
+    so the game loop below is a `while` loop that keeps cycling
+    through the turn order, one turn at a time, and only does the
+    "end of round" work (interest, aging, event timers, and the
+    every-10/15/20-round triggers) once everybody has crossed GO.
 ========================================*/
 
-void playGame(int turnOrder[])
+void playGame(GameState game[], int turnOrder[])
 {
     int round;
+    int turnPointer;
+    int playerIndex;
+    int passedGoThisRound[MAX_PLAYERS];
     int i;
+    int allPassed;
+    int passedGo;
 
-    for(round = 1; round <= MAX_ROUNDS; round++)
+    round = 1;
+    turnPointer = 0;
+
+    for(i = 0; i < MAX_PLAYERS; i++)
+        passedGoThisRound[i] = 0;
+
+    printf("\n=====================================\n");
+    printf("ROUND %d\n", round);
+    printf("=====================================\n");
+
+    while(round <= MAX_ROUNDS)
     {
-        printf("\n=====================================\n");
-        printf("ROUND %d\n", round);
-        printf("=====================================\n");
+        playerIndex = turnOrder[turnPointer];
+
+        if(!game[0].players[playerIndex].bankrupt)
+        {
+            passedGo = playTurn(game, playerIndex);
+
+            if(passedGo)
+                passedGoThisRound[playerIndex] = 1;
+        }
+
+        turnPointer = (turnPointer + 1) % MAX_PLAYERS;
+
+        /* Has every player still in the game passed GO at least once
+           since this round began? Bankrupt players don't count -
+           they no longer take turns, so they can't be waited on.     */
+        allPassed = 1;
 
         for(i = 0; i < MAX_PLAYERS; i++)
         {
-            playTurn(turnOrder[i]);
+            if(game[0].players[i].bankrupt)
+                continue;
+
+            if(!passedGoThisRound[i])
+            {
+                allPassed = 0;
+                break;
+            }
         }
 
-        /* End of round : loans accrue interest and may default */
-        processLoans();
-
-        /* End of round : insurance policies count down / expire */
-        processInsuranceExpiry();
-
-        /* End of round : properties get one round older, buildings
-           wear down a little (Rule-LK 15, 25)                      */
-        ageProperties();
-        ageBuildings();
-
-        /* Count down any active event bonuses/penalties */
-        decrementEventTimers();
-        decrementMarketTimers();
-
-        /* Every 10 rounds : disasters, inflation, and a market review
-           (Rule-LK 10, 12, 30)                                       */
-        if(round % 10 == 0)
+        if(allPassed)
         {
-            triggerDisaster();
-            applyInflation();
-            reviewPropertyMarket(round);
-        }
+            /* End of round : loans accrue interest and may default */
+            processLoans(game);
 
-        /* Every 15 rounds : an Economic Event and a Regional
-           Development Card (Section 2.5, 2.10)                      */
-        if(round % 15 == 0)
-        {
-            triggerEconomicEvent();
-            drawRegionalCard();
-        }
+            /* End of round : insurance policies count down / expire */
+            processInsuranceExpiry(game);
 
-        /* Every 20 rounds : a Government Regulation (Section 2.7) */
-        if(round % 20 == 0)
-        {
-            triggerGovernmentRegulation();
-        }
+            /* End of round : properties get one round older, buildings
+               wear down a little (Rule-LK 15, 25)                      */
+            ageProperties(game);
+            ageBuildings(game);
 
-        displayRoundSummary(round);
+            /* Count down any active event bonuses/penalties */
+            decrementEventTimers(game);
+            decrementMarketTimers(game);
 
-        /* Rule-LK 36 : show current market conditions every round */
-        displayMarketConditions();
+            /* Every 10 rounds : disasters, inflation, and a market review
+               (Rule-LK 10, 12, 30)                                       */
+            if(round % 10 == 0)
+            {
+                triggerDisaster(game);
+                applyInflation(game);
+                reviewPropertyMarket(game, round);
+            }
 
-        if(countSolventPlayers() <= 1)
-        {
-            printf("\nOnly one solvent player remains. Ending game.\n");
-            break;
+            /* Every 15 rounds : an Economic Event and a Regional
+               Development Card (Section 2.5, 2.10)                      */
+            if(round % 15 == 0)
+            {
+                triggerEconomicEvent(game);
+                drawRegionalCard(game);
+            }
+
+            /* Every 20 rounds : a Government Regulation (Section 2.7) */
+            if(round % 20 == 0)
+            {
+                triggerGovernmentRegulation(game);
+            }
+
+            displayRoundSummary(game, round);
+
+            /* Rule-LK 36 : show current market conditions every round */
+            displayMarketConditions(game);
+
+            if(countSolventPlayers(game) <= 1)
+            {
+                printf("\nOnly one solvent player remains. Ending game.\n");
+                break;
+            }
+
+            round++;
+
+            if(round <= MAX_ROUNDS)
+            {
+                printf("\n=====================================\n");
+                printf("ROUND %d\n", round);
+                printf("=====================================\n");
+            }
+
+            for(i = 0; i < MAX_PLAYERS; i++)
+                passedGoThisRound[i] = 0;
         }
     }
 }
@@ -434,7 +580,7 @@ void playGame(int turnOrder[])
     with the highest net worth wins instead.
 ========================================*/
 
-int determineWinner(void)
+int determineWinner(GameState game[])
 {
     int i;
     int winner;
@@ -446,10 +592,10 @@ int determineWinner(void)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
-        if(players[i].bankrupt)
+        if(game[0].players[i].bankrupt)
             continue;
 
-        netWorth = calculateNetWorth(i);
+        netWorth = calculateNetWorth(game, i);
 
         if(winner == -1 || netWorth > bestNetWorth)
         {
@@ -464,7 +610,7 @@ int determineWinner(void)
     {
         for(i = 0; i < MAX_PLAYERS; i++)
         {
-            netWorth = calculateNetWorth(i);
+            netWorth = calculateNetWorth(game, i);
 
             if(winner == -1 || netWorth > bestNetWorth)
             {
@@ -477,29 +623,29 @@ int determineWinner(void)
     return winner;
 }
 
-void displayFinalResults(void)
+void displayFinalResults(GameState game[])
 {
     int winner;
     int i;
 
-    winner = determineWinner();
+    winner = determineWinner(game);
 
     printf("\n=============================================\n");
     printf("GAME OVER\n");
     printf("=============================================\n");
 
-    printf("Winner\n%s\n", players[winner].name);
-    printf("Total Cash\nLKR %d\n", players[winner].cash);
+    printf("Winner\n%s\n", game[0].players[winner].name);
+    printf("Total Cash\nLKR %d\n", game[0].players[winner].cash);
 
     printf("Total Property Value\nLKR %d\n",
-           calculatePropertyValue(winner) + calculateBuildingValue(winner));
+           calculatePropertyValue(game, winner) + calculateBuildingValue(game, winner));
 
-    if(players[winner].loan.active)
-        printf("Outstanding Loans\nLKR %d\n", players[winner].loan.amount);
+    if(game[0].players[winner].loan.active)
+        printf("Outstanding Loans\nLKR %d\n", game[0].players[winner].loan.amount);
     else
         printf("Outstanding Loans\nNone\n");
 
-    printf("Net Worth\nLKR %d\n", calculateNetWorth(winner));
+    printf("Net Worth\nLKR %d\n", calculateNetWorth(game, winner));
     printf("=============================================\n");
 
     printf("\nFinal Standings (all players)\n");
@@ -507,13 +653,13 @@ void displayFinalResults(void)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
-        printf("\n%s\n", players[i].name);
-        printf("Cash : LKR %d\n", players[i].cash);
-        printf("Net Worth : LKR %d\n", calculateNetWorth(i));
-        printf("Properties : %d\n", players[i].propertiesOwned);
-        printf("Railways   : %d\n", players[i].railwaysOwned);
-        printf("Utilities  : %d\n", players[i].utilitiesOwned);
-        printf("Status : %s\n", players[i].bankrupt ? "Bankrupt" : "Active");
+        printf("\n%s\n", game[0].players[i].name);
+        printf("Cash : LKR %d\n", game[0].players[i].cash);
+        printf("Net Worth : LKR %d\n", calculateNetWorth(game, i));
+        printf("Properties : %d\n", game[0].players[i].propertiesOwned);
+        printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
+        printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
+        printf("Status : %s\n", game[0].players[i].bankrupt ? "Bankrupt" : "Active");
     }
 }
 
@@ -521,29 +667,29 @@ void displayFinalResults(void)
     ENTRY POINT CALLED FROM main.c
 ========================================*/
 
-void startGame(void)
+void startGame(GameState game[])
 {
-    /* Which order the 4 players take their turns in. This used to be
-       a global array; now it is just a normal local variable that
-       gets passed to the functions that need it.                    */
+    /* Which order the 4 players take their turns in. A normal local
+       array, passed to the functions that need it as a parameter -
+       no global variable, no pointer.                                */
     int turnOrder[MAX_PLAYERS];
 
     srand((unsigned)time(NULL));
 
-    initializeBoard();
-    initializePlayers();
-    initEconomy();
-    initMarket();
+    initializeBoard(game);
+    initializePlayers(game);
+    initEconomy(game);
+    initMarket(game);
 
-    printf("Player 1 : %s\n", players[0].name);
-    printf("Player 2 : %s\n", players[1].name);
-    printf("Player 3 : %s\n", players[2].name);
-    printf("Player 4 : %s\n", players[3].name);
+    printf("Player 1 : %s\n", game[0].players[0].name);
+    printf("Player 2 : %s\n", game[0].players[1].name);
+    printf("Player 3 : %s\n", game[0].players[2].name);
+    printf("Player 4 : %s\n", game[0].players[3].name);
     printf("\nEach player begins with LKR %d.\n", START_MONEY);
 
-    determineTurnOrder(turnOrder);
+    determineTurnOrder(game, turnOrder);
 
-    playGame(turnOrder);
+    playGame(game, turnOrder);
 
-    displayFinalResults();
+    displayFinalResults(game);
 }

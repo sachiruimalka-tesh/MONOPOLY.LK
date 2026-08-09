@@ -4,36 +4,33 @@
 #include "functions.h"
 
 /*========================================
-    GLOBAL VARIABLES
+    NOTE: no global variables, no pointers - everything is read and
+    written through the GameState array parameter `game`.
 ========================================*/
-
-extern Player players[MAX_PLAYERS];
-extern Square board[BOARD_SIZE];
 
 /*========================================
     "Current value" of a property, used to
     work out premiums and repair costs.
-    For now this is just the purchase price -
-    it will become more accurate once we add
-    the Depreciation and Dynamic Market phases.
 ========================================*/
 
-int propertyValue(int propIndex)
+int propertyValue(GameState game[], int propIndex)
 {
-    return currentMarketValue(propIndex);
+    return currentMarketValue(game, propIndex);
 }
 
 /* Assumption: repairing storm/fire/etc damage costs 30% of the
    property's value. The assignment does not give an exact figure,
    so this is a reasonable fixed rule used consistently everywhere. */
-int repairCost(int propIndex)
+int repairCost(GameState game[], int propIndex)
 {
-    return (propertyValue(propIndex) * 30) / 100;
+    return (propertyValue(game, propIndex) * 30) / 100;
 }
 
 /*========================================
     Does a given insurance policy cover a
     given disaster type? (Section 1.2 / E)
+    (This one doesn't need the game state at all - it's a pure
+    lookup based only on the two values it was given.)
 ========================================*/
 
 int isCovered(InsuranceType policy, DisasterType disaster)
@@ -66,13 +63,13 @@ int compensationPercent(InsuranceType policy)
     BUYING / RENEWING INSURANCE
 ========================================*/
 
-void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type)
+void purchaseInsurance(GameState game[], int playerIndex, int propIndex, InsuranceType type)
 {
     int value;
     int premium;
     int premiumPercent;
 
-    value = propertyValue(propIndex);
+    value = propertyValue(game, propIndex);
 
     switch(type)
     {
@@ -83,19 +80,19 @@ void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type)
     }
 
     premium = (value * premiumPercent) / 100;
-    premium = (premium * economy.insurancePremiumMultiplierPercent) / 100;
+    premium = (premium * game[0].economy.insurancePremiumMultiplierPercent) / 100;
 
-    if(players[playerIndex].cash < premium)
+    if(game[0].players[playerIndex].cash < premium)
         return;
 
-    payMoney(playerIndex, premium);
+    payMoney(game, playerIndex, premium);
 
-    board[propIndex].property.insurance = type;
-    board[propIndex].property.insuranceRoundsLeft = 20;
+    game[0].board[propIndex].property.insurance = type;
+    game[0].board[propIndex].property.insuranceRoundsLeft = 20;
 
     printf("\n%s purchased insurance for %s.\n",
-           players[playerIndex].name,
-           board[propIndex].name);
+           game[0].players[playerIndex].name,
+           game[0].board[propIndex].name);
 
     printf("Premium : LKR %d\n", premium);
 }
@@ -106,25 +103,25 @@ void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type)
     wants to insure.
 ========================================*/
 
-int findPropertyToInsure(int playerIndex)
+int findPropertyToInsure(GameState game[], int playerIndex)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type != PROPERTY)
+        if(game[0].board[i].type != PROPERTY)
             continue;
 
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(board[i].property.houses == 0 && !board[i].property.hotel)
+        if(game[0].board[i].property.houses == 0 && !game[0].board[i].property.hotel)
             continue;   /* not developed - nothing worth insuring yet */
 
-        if(board[i].property.insurance != NO_INSURANCE)
+        if(game[0].board[i].property.insurance != NO_INSURANCE)
             continue;   /* already insured */
 
-        if(desiredInsurance(playerIndex, i) != NO_INSURANCE)
+        if(desiredInsurance(game, playerIndex, i) != NO_INSURANCE)
             return i;
     }
 
@@ -136,15 +133,15 @@ int findPropertyToInsure(int playerIndex)
     AN INSURANCE SQUARE
 ========================================*/
 
-void handleInsuranceVisit(int playerIndex)
+void handleInsuranceVisit(GameState game[], int playerIndex)
 {
     int propIndex;
     InsuranceType type;
 
     printf("\n%s landed on an Insurance square.\n",
-           players[playerIndex].name);
+           game[0].players[playerIndex].name);
 
-    propIndex = findPropertyToInsure(playerIndex);
+    propIndex = findPropertyToInsure(game, playerIndex);
 
     if(propIndex == -1)
     {
@@ -152,9 +149,9 @@ void handleInsuranceVisit(int playerIndex)
         return;
     }
 
-    type = desiredInsurance(playerIndex, propIndex);
+    type = desiredInsurance(game, playerIndex, propIndex);
 
-    purchaseInsurance(playerIndex, propIndex, type);
+    purchaseInsurance(game, playerIndex, propIndex, type);
 }
 
 /*========================================
@@ -164,30 +161,30 @@ void handleInsuranceVisit(int playerIndex)
     buildings are fixed automatically.
 ========================================*/
 
-void tryAutoRepair(int playerIndex)
+void tryAutoRepair(GameState game[], int playerIndex)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type != PROPERTY)
+        if(game[0].board[i].type != PROPERTY)
             continue;
 
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(!board[i].property.damaged)
+        if(!game[0].board[i].property.damaged)
             continue;
 
-        if(players[playerIndex].cash >= board[i].property.repairCostOwed)
+        if(game[0].players[playerIndex].cash >= game[0].board[i].property.repairCostOwed)
         {
-            payMoney(playerIndex, board[i].property.repairCostOwed);
+            payMoney(game, playerIndex, game[0].board[i].property.repairCostOwed);
 
             printf("\n%s repaired %s. It can collect rent again.\n",
-                   players[playerIndex].name, board[i].name);
+                   game[0].players[playerIndex].name, game[0].board[i].name);
 
-            board[i].property.damaged = 0;
-            board[i].property.repairCostOwed = 0;
+            game[0].board[i].property.damaged = 0;
+            game[0].board[i].property.repairCostOwed = 0;
         }
     }
 }
@@ -198,7 +195,7 @@ void tryAutoRepair(int playerIndex)
     developed property (any owner).
 ========================================*/
 
-void triggerDisaster(void)
+void triggerDisaster(GameState game[])
 {
     int developed[BOARD_SIZE];
     int developedCount;
@@ -213,8 +210,8 @@ void triggerDisaster(void)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY &&
-           (board[i].property.houses > 0 || board[i].property.hotel))
+        if(game[0].board[i].type == PROPERTY &&
+           (game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel))
         {
             developed[developedCount] = i;
             developedCount++;
@@ -226,7 +223,7 @@ void triggerDisaster(void)
 
     chosen = developed[rand() % developedCount];
     disaster = (DisasterType)(rand() % 5);
-    owner = board[chosen].property.owner;
+    owner = game[0].board[chosen].property.owner;
 
     printf("\n*** DISASTER ***\n");
 
@@ -240,15 +237,15 @@ void triggerDisaster(void)
     }
 
     printf("Affected Property : %s (owner : %s)\n",
-           board[chosen].name, players[owner].name);
+           game[0].board[chosen].name, game[0].players[owner].name);
 
-    cost = repairCost(chosen);
+    cost = repairCost(game, chosen);
 
-    if(isCovered(board[chosen].property.insurance, disaster))
+    if(isCovered(game[0].board[chosen].property.insurance, disaster))
     {
-        compensation = (cost * compensationPercent(board[chosen].property.insurance)) / 100;
+        compensation = (cost * compensationPercent(game[0].board[chosen].property.insurance)) / 100;
 
-        receiveMoney(owner, compensation);
+        receiveMoney(game, owner, compensation);
 
         printf("Insurance Claim Approved.\n");
         printf("Compensation Paid : LKR %d\n", compensation);
@@ -260,20 +257,20 @@ void triggerDisaster(void)
     else
     {
         compensation = 0;
-        players[owner].sufferedLoss = 1;
+        game[0].players[owner].sufferedLoss = 1;
 
         printf("Property was NOT insured against this disaster.\n");
     }
 
     /* Whatever is still owed after compensation must be repaired
        before the building earns rent again */
-    board[chosen].property.repairCostOwed = cost - compensation;
+    game[0].board[chosen].property.repairCostOwed = cost - compensation;
 
-    if(board[chosen].property.repairCostOwed > 0)
+    if(game[0].board[chosen].property.repairCostOwed > 0)
     {
-        board[chosen].property.damaged = 1;
+        game[0].board[chosen].property.damaged = 1;
         printf("%s is damaged and stops earning rent until repaired.\n",
-               board[chosen].name);
+               game[0].board[chosen].name);
     }
 }
 
@@ -282,32 +279,32 @@ void triggerDisaster(void)
     (Rule-LK 9)
 ========================================*/
 
-void processInsuranceExpiry(void)
+void processInsuranceExpiry(GameState game[])
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type != PROPERTY)
+        if(game[0].board[i].type != PROPERTY)
             continue;
 
-        if(board[i].property.insurance == NO_INSURANCE)
+        if(game[0].board[i].property.insurance == NO_INSURANCE)
             continue;
 
-        board[i].property.insuranceRoundsLeft--;
+        game[0].board[i].property.insuranceRoundsLeft--;
 
-        if(board[i].property.insuranceRoundsLeft == 3)
+        if(game[0].board[i].property.insuranceRoundsLeft == 3)
         {
             printf("\nInsurance policy on %s expires in 3 rounds.\n",
-                   board[i].name);
+                   game[0].board[i].name);
         }
 
-        if(board[i].property.insuranceRoundsLeft <= 0)
+        if(game[0].board[i].property.insuranceRoundsLeft <= 0)
         {
             printf("\nInsurance policy on %s has expired.\n",
-                   board[i].name);
+                   game[0].board[i].name);
 
-            board[i].property.insurance = NO_INSURANCE;
+            game[0].board[i].property.insurance = NO_INSURANCE;
         }
     }
 }

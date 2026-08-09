@@ -4,63 +4,57 @@
 #include "functions.h"
 
 /*====================================
-        GLOBAL PLAYERS
+    NOTE: there is no global players array any more. Every function
+    below receives the whole GameState as an array parameter (named `game`), and
+    reads/writes game[0].players[...] instead of a global variable.
 ====================================*/
 
-Player players[MAX_PLAYERS];
-
-/*====================================
-    FUNCTION PROTOTYPES
-====================================*/
-
-void initializePlayers(void);
-void displayPlayers(void);
-int shouldBuyProperty(int playerIndex);
-
-void initializePlayers(void)
+void initializePlayers(GameState game[])
 {
+    int i;
+
     /* Player 1 */
-    strcpy(players[0].name, "Aggressive Investor");
-    players[0].strategy = AGGRESSIVE_INVESTOR;
+    strcpy(game[0].players[0].name, "Aggressive Investor");
+    game[0].players[0].strategy = AGGRESSIVE_INVESTOR;
 
     /* Player 2 */
-    strcpy(players[1].name, "Conservative Banker");
-    players[1].strategy = CONSERVATIVE_BANKER;
+    strcpy(game[0].players[1].name, "Conservative Banker");
+    game[0].players[1].strategy = CONSERVATIVE_BANKER;
 
     /* Player 3 */
-    strcpy(players[2].name, "Risk Taker");
-    players[2].strategy = RISK_TAKER;
+    strcpy(game[0].players[2].name, "Risk Taker");
+    game[0].players[2].strategy = RISK_TAKER;
 
     /* Player 4 */
-    strcpy(players[3].name, "Opportunistic Trader");
-    players[3].strategy = OPPORTUNISTIC_TRADER;
+    strcpy(game[0].players[3].name, "Opportunistic Trader");
+    game[0].players[3].strategy = OPPORTUNISTIC_TRADER;
 
     /* Initialize common values */
 
-    for(int i = 0; i < MAX_PLAYERS; i++)
+    for(i = 0; i < MAX_PLAYERS; i++)
     {
-        players[i].position = 0;
-        players[i].cash = START_MONEY;
+        game[0].players[i].position = 0;
+        game[0].players[i].cash = START_MONEY;
 
-        players[i].inJail = 0;
-        players[i].jailTurns = 0;
+        game[0].players[i].inJail = 0;
+        game[0].players[i].jailTurns = 0;
 
-        players[i].bankrupt = 0;
+        game[0].players[i].bankrupt = 0;
 
-        players[i].propertiesOwned = 0;
-        players[i].railwaysOwned = 0;
-        players[i].utilitiesOwned = 0;
+        game[0].players[i].propertiesOwned = 0;
+        game[0].players[i].railwaysOwned = 0;
+        game[0].players[i].utilitiesOwned = 0;
 
-        players[i].loan.active = 0;
-        players[i].loan.amount = 0;
-        players[i].loan.interestRate = 0;
-        players[i].loan.remainingRounds = 0;
+        game[0].players[i].loan.active = 0;
+        game[0].players[i].loan.amount = 0;
+        game[0].players[i].loan.interestRate = 0;
+        game[0].players[i].loan.remainingRounds = 0;
 
-        players[i].sufferedLoss = 0;
+        game[0].players[i].sufferedLoss = 0;
     }
 }
 
-void displayPlayers(void)
+void displayPlayers(GameState game[])
 {
     int i;
 
@@ -69,14 +63,14 @@ void displayPlayers(void)
     for(i = 0; i < MAX_PLAYERS; i++)
     {
         printf("\nPlayer %d\n", i + 1);
-        printf("Name       : %s\n", players[i].name);
-        printf("Cash       : LKR %d\n", players[i].cash);
-        printf("Position   : %d\n", players[i].position);
-        printf("Properties : %d\n", players[i].propertiesOwned);
-        printf("Railways   : %d\n", players[i].railwaysOwned);
-        printf("Utilities  : %d\n", players[i].utilitiesOwned);
+        printf("Name       : %s\n", game[0].players[i].name);
+        printf("Cash       : LKR %d\n", game[0].players[i].cash);
+        printf("Position   : %d\n", game[0].players[i].position);
+        printf("Properties : %d\n", game[0].players[i].propertiesOwned);
+        printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
+        printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
 
-        if(players[i].bankrupt)
+        if(game[0].players[i].bankrupt)
             printf("Status     : Bankrupt\n");
         else
             printf("Status     : Active\n");
@@ -85,38 +79,38 @@ void displayPlayers(void)
     printf("\n=========================================\n");
 }
 
-int shouldBuyProperty(int playerIndex)
+int shouldBuyProperty(GameState game[], int playerIndex)
 {
     int price;
 
-    price = board[players[playerIndex].position].property.purchasePrice;
+    price = game[0].board[game[0].players[playerIndex].position].property.purchasePrice;
 
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
             /* Buy unless almost broke */
 
-            return (players[playerIndex].cash - price >= 1000);
+            return (game[0].players[playerIndex].cash - price >= 1000);
 
         case CONSERVATIVE_BANKER:
 
             /* Keep at least 50% of current cash */
 
-            return (players[playerIndex].cash - price >=
-                    players[playerIndex].cash / 2);
+            return (game[0].players[playerIndex].cash - price >=
+                    game[0].players[playerIndex].cash / 2);
 
         case RISK_TAKER:
 
             /* Always buy if affordable */
 
-            return (players[playerIndex].cash >= price);
+            return (game[0].players[playerIndex].cash >= price);
 
         case OPPORTUNISTIC_TRADER:
 
             /* Buy only cheaper properties */
 
-            return (price <= players[playerIndex].cash * 40 / 100);
+            return (price <= game[0].players[playerIndex].cash * 40 / 100);
 
         default:
 
@@ -130,39 +124,39 @@ int shouldBuyProperty(int playerIndex)
     (Section 3 - construction preferences)
 ========================================*/
 
-int shouldConstruct(int playerIndex, int cost)
+int shouldConstruct(GameState game[], int playerIndex, int cost)
 {
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
             /* Builds aggressively, just keep a small safety margin */
 
-            return (players[playerIndex].cash - cost >= 1000);
+            return (game[0].players[playerIndex].cash - cost >= 1000);
 
         case CONSERVATIVE_BANKER:
 
             /* Cautious - never develops hotels while a loan is active,
                and always keeps at least 50% of cash in hand          */
 
-            if(players[playerIndex].loan.active)
+            if(game[0].players[playerIndex].loan.active)
                 return 0;
 
-            return (players[playerIndex].cash - cost >=
-                    players[playerIndex].cash / 2);
+            return (game[0].players[playerIndex].cash - cost >=
+                    game[0].players[playerIndex].cash / 2);
 
         case RISK_TAKER:
 
             /* Builds as early as possible, only limited by cash */
 
-            return (players[playerIndex].cash >= cost);
+            return (game[0].players[playerIndex].cash >= cost);
 
         case OPPORTUNISTIC_TRADER:
 
             /* Moderate - build only if it still leaves a fair reserve */
 
-            return (players[playerIndex].cash - cost >=
-                    players[playerIndex].cash * 40 / 100);
+            return (game[0].players[playerIndex].cash - cost >=
+                    game[0].players[playerIndex].cash * 40 / 100);
 
         default:
 
@@ -175,9 +169,9 @@ int shouldConstruct(int playerIndex, int cost)
     right now? (Section 3 - loan preferences)
 ========================================*/
 
-int wantsLoan(int playerIndex)
+int wantsLoan(GameState game[], int playerIndex)
 {
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
@@ -189,7 +183,7 @@ int wantsLoan(int playerIndex)
 
             /* Avoids loans unless bankruptcy is close */
 
-            return (players[playerIndex].cash < 1000);
+            return (game[0].players[playerIndex].cash < 1000);
 
         case RISK_TAKER:
 
@@ -201,7 +195,7 @@ int wantsLoan(int playerIndex)
 
             /* Borrows only when cash is starting to run low */
 
-            return (players[playerIndex].cash < 5000);
+            return (game[0].players[playerIndex].cash < 5000);
 
         default:
 
@@ -214,35 +208,35 @@ int wantsLoan(int playerIndex)
     their loan right now?
 ========================================*/
 
-int wantsToRepayLoan(int playerIndex)
+int wantsToRepayLoan(GameState game[], int playerIndex)
 {
     int loanAmount;
 
-    loanAmount = players[playerIndex].loan.amount;
+    loanAmount = game[0].players[playerIndex].loan.amount;
 
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
             /* Only repays once cash is more than double the loan */
 
-            return (players[playerIndex].cash >= 2 * loanAmount);
+            return (game[0].players[playerIndex].cash >= 2 * loanAmount);
 
         case CONSERVATIVE_BANKER:
 
             /* Repays immediately whenever possible */
 
-            return (players[playerIndex].cash >= loanAmount);
+            return (game[0].players[playerIndex].cash >= loanAmount);
 
         case RISK_TAKER:
 
             /* Rarely repays - prefers to keep using the cash */
 
-            return (players[playerIndex].cash >= 5 * loanAmount);
+            return (game[0].players[playerIndex].cash >= 5 * loanAmount);
 
         case OPPORTUNISTIC_TRADER:
 
-            return (players[playerIndex].cash >= (loanAmount * 3) / 2);
+            return (game[0].players[playerIndex].cash >= (loanAmount * 3) / 2);
 
         default:
 
@@ -257,15 +251,15 @@ int wantsToRepayLoan(int playerIndex)
     (Section 3 - insurance preferences)
 ========================================*/
 
-InsuranceType desiredInsurance(int playerIndex, int propIndex)
+InsuranceType desiredInsurance(GameState game[], int playerIndex, int propIndex)
 {
     int hasHotel;
     int purchasePrice;
 
-    hasHotel = board[propIndex].property.hotel;
-    purchasePrice = board[propIndex].property.purchasePrice;
+    hasHotel = game[0].board[propIndex].property.hotel;
+    purchasePrice = game[0].board[propIndex].property.purchasePrice;
 
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
@@ -290,7 +284,7 @@ InsuranceType desiredInsurance(int playerIndex, int propIndex)
                applies to hotels (Section 1.2), so use that for
                hotels, and the cheaper Basic policy for houses.        */
 
-            if(!players[playerIndex].sufferedLoss)
+            if(!game[0].players[playerIndex].sufferedLoss)
                 return NO_INSURANCE;
 
             if(hasHotel)
@@ -318,9 +312,9 @@ InsuranceType desiredInsurance(int playerIndex, int propIndex)
     that has lost value to age (Rule-LK 17)?
 ========================================*/
 
-int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent)
+int shouldRenovateAgeDepreciation(GameState game[], int playerIndex, int depreciationPercent)
 {
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case CONSERVATIVE_BANKER:
 
@@ -346,17 +340,17 @@ int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent)
     building right now? (Rule-LK 27)
 ========================================*/
 
-int shouldMaintain(int playerIndex, int condition, int cost)
+int shouldMaintain(GameState game[], int playerIndex, int condition, int cost)
 {
-    if(players[playerIndex].strategy == RISK_TAKER)
+    if(game[0].players[playerIndex].strategy == RISK_TAKER)
     {
         /* "Ignores depreciation until repair becomes unavoidable" */
-        return (condition < 25 && players[playerIndex].cash >= cost);
+        return (condition < 25 && game[0].players[playerIndex].cash >= cost);
     }
 
     /* Everyone else keeps a modest cash cushion while maintaining */
-    return (players[playerIndex].cash - cost >=
-            players[playerIndex].cash * 20 / 100);
+    return (game[0].players[playerIndex].cash - cost >=
+            game[0].players[playerIndex].cash * 20 / 100);
 }
 
 /*========================================
@@ -365,16 +359,16 @@ int shouldMaintain(int playerIndex, int condition, int cost)
     Rule-LK 19-22)
 ========================================*/
 
-int willingToBid(int playerIndex, int propIndex, int candidateBid)
+int willingToBid(GameState game[], int playerIndex, int propIndex, int candidateBid)
 {
     int marketValue;
 
-    if(players[playerIndex].cash < candidateBid)
+    if(game[0].players[playerIndex].cash < candidateBid)
         return 0;   /* Rule-LK 22 : can never bid more than you have */
 
-    marketValue = board[propIndex].property.purchasePrice;
+    marketValue = game[0].board[propIndex].property.purchasePrice;
 
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
 
@@ -413,29 +407,29 @@ int willingToBid(int playerIndex, int propIndex, int candidateBid)
     idea of "desperate")
 ========================================*/
 
-int shouldMortgage(int playerIndex)
+int shouldMortgage(GameState game[], int playerIndex)
 {
-    switch(players[playerIndex].strategy)
+    switch(game[0].players[playerIndex].strategy)
     {
         case CONSERVATIVE_BANKER:
 
             /* Keeps a big cash cushion, so acts early */
 
-            return (players[playerIndex].cash < 3000);
+            return (game[0].players[playerIndex].cash < 3000);
 
         case RISK_TAKER:
 
             /* Prefers loans over mortgaging - only as a last resort */
 
-            return (players[playerIndex].cash < 500);
+            return (game[0].players[playerIndex].cash < 500);
 
         case AGGRESSIVE_INVESTOR:
 
-            return (players[playerIndex].cash < 1000);
+            return (game[0].players[playerIndex].cash < 1000);
 
         case OPPORTUNISTIC_TRADER:
 
-            return (players[playerIndex].cash < 1200);
+            return (game[0].players[playerIndex].cash < 1200);
 
         default:
 
@@ -448,9 +442,9 @@ int shouldMortgage(int playerIndex)
     redeem (pay off) a mortgaged property?
 ========================================*/
 
-int shouldRedeemMortgage(int playerIndex, int redeemCost)
+int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost)
 {
     /* Simple rule for everyone : only redeem if there's still a
        healthy amount of cash left over afterwards                */
-    return (players[playerIndex].cash - redeemCost >= redeemCost);
+    return (game[0].players[playerIndex].cash - redeemCost >= redeemCost);
 }

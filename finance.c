@@ -3,34 +3,36 @@
 #include "functions.h"
 
 /*========================================
-        GLOBAL VARIABLES
+    NOTE: no global variables and no pointers are used anywhere in
+    this file. Every function that needs the board, the players, or
+    the economy receives the whole GameState as an array parameter
+    (`GameState game[]`), and reads/writes it using plain dot and
+    bracket notation: game[0].board[...], game[0].players[...],
+    game[0].economy....
 ========================================*/
-
-extern Player players[MAX_PLAYERS];
-extern Square board[BOARD_SIZE];
 
 /*========================================
     MONEY HELPERS
 ========================================*/
 
-void receiveMoney(int playerIndex, int amount)
+void receiveMoney(GameState game[], int playerIndex, int amount)
 {
-    players[playerIndex].cash += amount;
+    game[0].players[playerIndex].cash += amount;
 }
 
-void payMoney(int playerIndex, int amount)
+void payMoney(GameState game[], int playerIndex, int amount)
 {
-    players[playerIndex].cash -= amount;
+    game[0].players[playerIndex].cash -= amount;
 
-    if(players[playerIndex].cash < 0 && !players[playerIndex].bankrupt)
+    if(game[0].players[playerIndex].cash < 0 && !game[0].players[playerIndex].bankrupt)
     {
-        players[playerIndex].bankrupt = 1;
+        game[0].players[playerIndex].bankrupt = 1;
 
         printf("\n*** BANKRUPTCY ***\n");
         printf("%s has been declared bankrupt.\n",
-               players[playerIndex].name);
+               game[0].players[playerIndex].name);
 
-        liquidateBankruptAssets(playerIndex);
+        liquidateBankruptAssets(game, playerIndex);
     }
 }
 
@@ -41,55 +43,55 @@ void payMoney(int playerIndex, int amount)
     own is auctioned off (Rule-LK 19).
 ========================================*/
 
-void liquidateBankruptAssets(int playerIndex)
+void liquidateBankruptAssets(GameState game[], int playerIndex)
 {
     int i;
 
     printf("%s's remaining assets are being liquidated.\n",
-           players[playerIndex].name);
+           game[0].players[playerIndex].name);
 
     /* The unpaid loan (if any) is simply written off - there is
        nothing left to collect from a bankrupt player            */
-    players[playerIndex].loan.active = 0;
-    players[playerIndex].loan.amount = 0;
-    players[playerIndex].loan.interestRate = 0;
-    players[playerIndex].loan.remainingRounds = 0;
+    game[0].players[playerIndex].loan.active = 0;
+    game[0].players[playerIndex].loan.amount = 0;
+    game[0].players[playerIndex].loan.interestRate = 0;
+    game[0].players[playerIndex].loan.remainingRounds = 0;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        demolishBuildingsOn(i);
+        demolishBuildingsOn(game, i);
 
-        board[i].property.owner = -1;
-        board[i].property.mortgaged = 0;
-        board[i].property.loanLocked = 0;
-        board[i].property.insurance = NO_INSURANCE;
-        board[i].property.damaged = 0;
-        board[i].property.repairCostOwed = 0;
+        game[0].board[i].property.owner = -1;
+        game[0].board[i].property.mortgaged = 0;
+        game[0].board[i].property.loanLocked = 0;
+        game[0].board[i].property.insurance = NO_INSURANCE;
+        game[0].board[i].property.damaged = 0;
+        game[0].board[i].property.repairCostOwed = 0;
 
-        if(board[i].type == PROPERTY)
-            players[playerIndex].propertiesOwned--;
-        else if(board[i].type == RAILWAY)
-            players[playerIndex].railwaysOwned--;
-        else if(board[i].type == UTILITY)
-            players[playerIndex].utilitiesOwned--;
+        if(game[0].board[i].type == PROPERTY)
+            game[0].players[playerIndex].propertiesOwned--;
+        else if(game[0].board[i].type == RAILWAY)
+            game[0].players[playerIndex].railwaysOwned--;
+        else if(game[0].board[i].type == UTILITY)
+            game[0].players[playerIndex].utilitiesOwned--;
 
-        runAuction(i);
+        runAuction(game, i);
     }
 }
 
-void payTax(int playerIndex, int amount)
+void payTax(GameState game[], int playerIndex, int amount)
 {
     printf("\n%s landed on Income Tax.\n",
-           players[playerIndex].name);
+           game[0].players[playerIndex].name);
 
     printf("%s paid tax : LKR %d\n",
-           players[playerIndex].name,
+           game[0].players[playerIndex].name,
            amount);
 
-    payMoney(playerIndex, amount);
+    payMoney(game, playerIndex, amount);
 }
 
 /*========================================
@@ -107,26 +109,26 @@ void payTax(int playerIndex, int amount)
 ========================================*/
 
 /* Find one property this player could mortgage right now */
-int findPropertyToMortgage(int playerIndex)
+int findPropertyToMortgage(GameState game[], int playerIndex)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(board[i].property.mortgaged)
+        if(game[0].board[i].property.mortgaged)
             continue;
 
-        if(board[i].property.loanLocked)
+        if(game[0].board[i].property.loanLocked)
             continue;   /* already pledged to a loan */
 
         /* A developed property must be undeveloped before it can be
            mortgaged (standard Monopoly rule - can't mortgage land
            that still has houses/a hotel standing on it)             */
-        if(board[i].type == PROPERTY &&
-           (board[i].property.houses > 0 || board[i].property.hotel))
+        if(game[0].board[i].type == PROPERTY &&
+           (game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel))
         {
             continue;
         }
@@ -138,14 +140,14 @@ int findPropertyToMortgage(int playerIndex)
 }
 
 /* Find one of this player's mortgaged properties */
-int findMortgagedProperty(int playerIndex)
+int findMortgagedProperty(GameState game[], int playerIndex)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].property.owner == playerIndex &&
-           board[i].property.mortgaged)
+        if(game[0].board[i].property.owner == playerIndex &&
+           game[0].board[i].property.mortgaged)
         {
             return i;
         }
@@ -154,64 +156,64 @@ int findMortgagedProperty(int playerIndex)
     return -1;
 }
 
-void mortgageProperty(int playerIndex)
+void mortgageProperty(GameState game[], int playerIndex)
 {
     int propIndex;
 
-    if(!shouldMortgage(playerIndex))
+    if(!shouldMortgage(game, playerIndex))
         return;
 
-    propIndex = findPropertyToMortgage(playerIndex);
+    propIndex = findPropertyToMortgage(game, playerIndex);
 
     if(propIndex == -1)
         return;
 
-    board[propIndex].property.mortgaged = 1;
+    game[0].board[propIndex].property.mortgaged = 1;
 
-    receiveMoney(playerIndex, board[propIndex].property.mortgageValue);
+    receiveMoney(game, playerIndex, game[0].board[propIndex].property.mortgageValue);
 
     printf("\n%s mortgaged %s for LKR %d.\n",
-           players[playerIndex].name,
-           board[propIndex].name,
-           board[propIndex].property.mortgageValue);
+           game[0].players[playerIndex].name,
+           game[0].board[propIndex].name,
+           game[0].board[propIndex].property.mortgageValue);
 }
 
-void redeemMortgage(int playerIndex)
+void redeemMortgage(GameState game[], int playerIndex)
 {
     int propIndex;
     int redeemCost;
 
-    propIndex = findMortgagedProperty(playerIndex);
+    propIndex = findMortgagedProperty(game, playerIndex);
 
     if(propIndex == -1)
         return;
 
     /* Standard rule : pay back the mortgage value plus 10% interest */
-    redeemCost = (board[propIndex].property.mortgageValue * 110) / 100;
+    redeemCost = (game[0].board[propIndex].property.mortgageValue * 110) / 100;
 
-    if(!shouldRedeemMortgage(playerIndex, redeemCost))
+    if(!shouldRedeemMortgage(game, playerIndex, redeemCost))
         return;
 
-    if(players[playerIndex].cash < redeemCost)
+    if(game[0].players[playerIndex].cash < redeemCost)
         return;
 
-    payMoney(playerIndex, redeemCost);
+    payMoney(game, playerIndex, redeemCost);
 
-    board[propIndex].property.mortgaged = 0;
+    game[0].board[propIndex].property.mortgaged = 0;
 
     printf("\n%s redeemed the mortgage on %s for LKR %d.\n",
-           players[playerIndex].name,
-           board[propIndex].name,
+           game[0].players[playerIndex].name,
+           game[0].board[propIndex].name,
            redeemCost);
 }
 
 /* Step 7 of a turn : "Complete financial transactions" (Rule 3) */
-void handleMortgageDecisions(int playerIndex)
+void handleMortgageDecisions(GameState game[], int playerIndex)
 {
     /* Try to pay off a mortgage first if things are going well,
        otherwise consider raising quick cash by mortgaging something */
-    redeemMortgage(playerIndex);
-    mortgageProperty(playerIndex);
+    redeemMortgage(game, playerIndex);
+    mortgageProperty(game, playerIndex);
 }
 
 /*========================================
@@ -219,41 +221,52 @@ void handleMortgageDecisions(int playerIndex)
 ========================================*/
 
 /* Rent for a normal PROPERTY square, based on houses/hotel (Table 6),
-   scaled down if the building's condition is poor (Table 3)          */
-int calculateRent(int position)
+   scaled down if the building's condition is poor (Table 3).
+   NOTE: this used to grab a pointer to the property to save typing;
+   it now just reads game[0].board[position].property fields directly
+   instead, exactly like every other function in the project.        */
+int calculateRent(GameState game[], int position)
 {
-    Property *p;
     int rent;
     int conditionPercent;
+    int houses;
+    int hotel;
+    int baseRent;
+    PropertyGroup group;
+    int condition;
 
-    p = &board[position].property;
+    houses = game[0].board[position].property.houses;
+    hotel = game[0].board[position].property.hotel;
+    baseRent = game[0].board[position].property.baseRent;
+    group = game[0].board[position].property.group;
+    condition = game[0].board[position].property.condition;
 
-    if(p->hotel)
-        rent = p->baseRent * 10;
+    if(hotel)
+        rent = baseRent * 10;
     else
     {
-        switch(p->houses)
+        switch(houses)
         {
-            case 0:  rent = p->baseRent * 1; break;
-            case 1:  rent = p->baseRent * 2; break;
-            case 2:  rent = p->baseRent * 3; break;
-            case 3:  rent = p->baseRent * 5; break;
-            case 4:  rent = p->baseRent * 7; break;
-            default: rent = p->baseRent;     break;
+            case 0:  rent = baseRent * 1; break;
+            case 1:  rent = baseRent * 2; break;
+            case 2:  rent = baseRent * 3; break;
+            case 3:  rent = baseRent * 5; break;
+            case 4:  rent = baseRent * 7; break;
+            default: rent = baseRent;     break;
         }
     }
 
     /* Apply any active Dynamic Market / Regional Card rent effect
        on this property's colour group (Sections 2.9, 2.10)         */
-    rent = (rent * economy.groupRentMultiplier[p->group]) / 100;
+    rent = (rent * game[0].economy.groupRentMultiplier[group]) / 100;
 
     /* Apply any active hotel rent bonus/penalty from events (Section 2.5/2.7) */
-    if(p->hotel)
-        rent = (rent * economy.hotelRentMultiplierPercent) / 100;
+    if(hotel)
+        rent = (rent * game[0].economy.hotelRentMultiplierPercent) / 100;
 
-    if(p->houses > 0 || p->hotel)
+    if(houses > 0 || hotel)
     {
-        conditionPercent = rentConditionPercent(p->condition);
+        conditionPercent = rentConditionPercent(condition);
         rent = (rent * conditionPercent) / 100;
     }
 
@@ -261,7 +274,7 @@ int calculateRent(int position)
 }
 
 /* Rent for a railway station, based on Table 7 (how many the owner has) */
-int calculateRailwayRent(int playerIndex)
+int calculateRailwayRent(GameState game[], int playerIndex)
 {
     int i;
     int count;
@@ -270,8 +283,8 @@ int calculateRailwayRent(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == RAILWAY &&
-           board[i].property.owner == playerIndex)
+        if(game[0].board[i].type == RAILWAY &&
+           game[0].board[i].property.owner == playerIndex)
         {
             count++;
         }
@@ -279,16 +292,16 @@ int calculateRailwayRent(int playerIndex)
 
     switch(count)
     {
-        case 1:  return (250  * economy.railwayRentMultiplierPercent) / 100;
-        case 2:  return (500  * economy.railwayRentMultiplierPercent) / 100;
-        case 3:  return (1000 * economy.railwayRentMultiplierPercent) / 100;
-        case 4:  return (2000 * economy.railwayRentMultiplierPercent) / 100;
+        case 1:  return (250  * game[0].economy.railwayRentMultiplierPercent) / 100;
+        case 2:  return (500  * game[0].economy.railwayRentMultiplierPercent) / 100;
+        case 3:  return (1000 * game[0].economy.railwayRentMultiplierPercent) / 100;
+        case 4:  return (2000 * game[0].economy.railwayRentMultiplierPercent) / 100;
         default: return 0;
     }
 }
 
 /* Rent for a utility, based on Table 8 (dice value just rolled) */
-int calculateUtilityRent(int playerIndex, int diceValue)
+int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
 {
     int i;
     int count;
@@ -297,18 +310,18 @@ int calculateUtilityRent(int playerIndex, int diceValue)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == UTILITY &&
-           board[i].property.owner == playerIndex)
+        if(game[0].board[i].type == UTILITY &&
+           game[0].board[i].property.owner == playerIndex)
         {
             count++;
         }
     }
 
     if(count == 2)
-        return (10 * diceValue * economy.utilityRentMultiplierPercent) / 100;
+        return (10 * diceValue * game[0].economy.utilityRentMultiplierPercent) / 100;
 
     if(count == 1)
-        return (4 * diceValue * economy.utilityRentMultiplierPercent) / 100;
+        return (4 * diceValue * game[0].economy.utilityRentMultiplierPercent) / 100;
 
     return 0;
 }
@@ -319,7 +332,7 @@ int calculateUtilityRent(int playerIndex, int diceValue)
 ========================================*/
 
 /* How many PROPERTY squares belong to this colour group in total? */
-int groupSize(PropertyGroup group)
+int groupSize(GameState game[], PropertyGroup group)
 {
     int i;
     int count;
@@ -328,7 +341,7 @@ int groupSize(PropertyGroup group)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY && board[i].property.group == group)
+        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
             count++;
     }
 
@@ -336,7 +349,7 @@ int groupSize(PropertyGroup group)
 }
 
 /* Does this player own every property in the given colour group? */
-int ownsMonopoly(int playerIndex, PropertyGroup group)
+int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group)
 {
     int i;
     int owned;
@@ -345,27 +358,27 @@ int ownsMonopoly(int playerIndex, PropertyGroup group)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY && board[i].property.group == group)
+        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
         {
-            if(board[i].property.owner == playerIndex)
+            if(game[0].board[i].property.owner == playerIndex)
                 owned++;
         }
     }
 
-    return (owned == groupSize(group));
+    return (owned == groupSize(game, group));
 }
 
 /* Try to build one house (or one hotel) somewhere in this colour group.
    Building must stay even : we always add to the property with the
    fewest houses first (Rule 9).                                        */
-void developGroup(int playerIndex, PropertyGroup group)
+void developGroup(GameState game[], int playerIndex, PropertyGroup group)
 {
     int i;
     int minHouses;
     int targetIndex;
     int allFourHouses;
 
-    if(!ownsMonopoly(playerIndex, group))
+    if(!ownsMonopoly(game, playerIndex, group))
         return;
 
     minHouses = MAX_HOUSES + 1;
@@ -374,17 +387,17 @@ void developGroup(int playerIndex, PropertyGroup group)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY && board[i].property.group == group)
+        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
         {
-            if(board[i].property.hotel)
+            if(game[0].board[i].property.hotel)
                 continue;
 
-            if(board[i].property.houses < MAX_HOUSES)
+            if(game[0].board[i].property.houses < MAX_HOUSES)
                 allFourHouses = 0;
 
-            if(board[i].property.houses < minHouses)
+            if(game[0].board[i].property.houses < minHouses)
             {
-                minHouses = board[i].property.houses;
+                minHouses = game[0].board[i].property.houses;
                 targetIndex = i;
             }
         }
@@ -400,23 +413,23 @@ void developGroup(int playerIndex, PropertyGroup group)
     {
         int hotelCost;
 
-        hotelCost = (board[targetIndex].property.hotelCost *
-                     economy.constructionCostMultiplierPercent) / 100;
+        hotelCost = (game[0].board[targetIndex].property.hotelCost *
+                     game[0].economy.constructionCostMultiplierPercent) / 100;
 
-        if(!shouldConstruct(playerIndex, hotelCost))
+        if(!shouldConstruct(game, playerIndex, hotelCost))
             return;
 
-        if(players[playerIndex].cash < hotelCost)
+        if(game[0].players[playerIndex].cash < hotelCost)
             return;
 
-        payMoney(playerIndex, hotelCost);
+        payMoney(game, playerIndex, hotelCost);
 
-        board[targetIndex].property.houses = 0;
-        board[targetIndex].property.hotel = 1;
+        game[0].board[targetIndex].property.houses = 0;
+        game[0].board[targetIndex].property.hotel = 1;
 
         printf("\n%s upgraded %s to a Hotel.\n",
-               players[playerIndex].name,
-               board[targetIndex].name);
+               game[0].players[playerIndex].name,
+               game[0].board[targetIndex].name);
 
         printf("Construction Cost : LKR %d\n", hotelCost);
 
@@ -427,38 +440,38 @@ void developGroup(int playerIndex, PropertyGroup group)
     {
         int houseCost;
 
-        houseCost = (board[targetIndex].property.houseCost *
-                     economy.constructionCostMultiplierPercent) / 100;
+        houseCost = (game[0].board[targetIndex].property.houseCost *
+                     game[0].economy.constructionCostMultiplierPercent) / 100;
 
-        if(!shouldConstruct(playerIndex, houseCost))
+        if(!shouldConstruct(game, playerIndex, houseCost))
             return;
 
-        if(players[playerIndex].cash < houseCost)
+        if(game[0].players[playerIndex].cash < houseCost)
             return;
 
-        payMoney(playerIndex, houseCost);
+        payMoney(game, playerIndex, houseCost);
 
-        board[targetIndex].property.houses++;
+        game[0].board[targetIndex].property.houses++;
 
         printf("\n%s constructed one house on %s.\n",
-               players[playerIndex].name,
-               board[targetIndex].name);
+               game[0].players[playerIndex].name,
+               game[0].board[targetIndex].name);
 
         printf("Construction Cost : LKR %d\n", houseCost);
     }
 }
 
 /* Called once per turn : look at every colour group and try to build */
-void constructBuildings(int playerIndex)
+void constructBuildings(GameState game[], int playerIndex)
 {
     PropertyGroup group;
 
-    if(economy.constructionSuspendedRoundsLeft > 0)
+    if(game[0].economy.constructionSuspendedRoundsLeft > 0)
         return;   /* Labour Strike / Fuel Crisis event active */
 
     for(group = BROWN; group < NO_GROUP; group++)
     {
-        developGroup(playerIndex, group);
+        developGroup(game, playerIndex, group);
     }
 }
 
@@ -481,7 +494,7 @@ void constructBuildings(int playerIndex)
 ========================================*/
 
 /* Property + Railway + Utility value, all combined into one number */
-int calculatePropertyValue(int playerIndex)
+int calculatePropertyValue(GameState game[], int playerIndex)
 {
     int i;
     int total;
@@ -490,20 +503,20 @@ int calculatePropertyValue(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(board[i].type == PROPERTY)
-            total += currentMarketValue(i);
-        else if(board[i].type == RAILWAY || board[i].type == UTILITY)
-            total += board[i].property.purchasePrice;
+        if(game[0].board[i].type == PROPERTY)
+            total += currentMarketValue(game, i);
+        else if(game[0].board[i].type == RAILWAY || game[0].board[i].type == UTILITY)
+            total += game[0].board[i].property.purchasePrice;
     }
 
     return total;
 }
 
 /* Value of all houses/hotels the player has built */
-int calculateBuildingValue(int playerIndex)
+int calculateBuildingValue(GameState game[], int playerIndex)
 {
     int i;
     int total;
@@ -512,22 +525,22 @@ int calculateBuildingValue(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type != PROPERTY)
+        if(game[0].board[i].type != PROPERTY)
             continue;
 
-        if(board[i].property.owner != playerIndex)
+        if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(board[i].property.hotel)
-            total += board[i].property.hotelCost;
+        if(game[0].board[i].property.hotel)
+            total += game[0].board[i].property.hotelCost;
         else
-            total += board[i].property.houses * board[i].property.houseCost;
+            total += game[0].board[i].property.houses * game[0].board[i].property.houseCost;
     }
 
     return total;
 }
 
-int calculateNetWorth(int playerIndex)
+int calculateNetWorth(GameState game[], int playerIndex)
 {
     int cash;
     int propertyValue;
@@ -537,16 +550,16 @@ int calculateNetWorth(int playerIndex)
     int accruedInterest;
     int taxesDue;
 
-    cash = players[playerIndex].cash;
-    propertyValue = calculatePropertyValue(playerIndex);
-    buildingValue = calculateBuildingValue(playerIndex);
+    cash = game[0].players[playerIndex].cash;
+    propertyValue = calculatePropertyValue(game, playerIndex);
+    buildingValue = calculateBuildingValue(game, playerIndex);
 
     insuranceClaimsReceivable = 0;   /* see note above */
     accruedInterest = 0;              /* already folded into loan.amount */
     taxesDue = 0;                     /* taxes are always paid immediately */
 
-    outstandingLoans = players[playerIndex].loan.active ?
-                        players[playerIndex].loan.amount : 0;
+    outstandingLoans = game[0].players[playerIndex].loan.active ?
+                        game[0].players[playerIndex].loan.amount : 0;
 
     return cash + propertyValue + buildingValue + insuranceClaimsReceivable
            - outstandingLoans - accruedInterest - taxesDue;
@@ -556,7 +569,7 @@ int calculateNetWorth(int playerIndex)
     BUYING PROPERTY / RAILWAY / UTILITY
 ========================================*/
 
-int countUndevelopedProperties(int playerIndex)
+int countUndevelopedProperties(GameState game[], int playerIndex)
 {
     int i;
     int count;
@@ -565,10 +578,10 @@ int countUndevelopedProperties(int playerIndex)
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY &&
-           board[i].property.owner == playerIndex &&
-           board[i].property.houses == 0 &&
-           !board[i].property.hotel)
+        if(game[0].board[i].type == PROPERTY &&
+           game[0].board[i].property.owner == playerIndex &&
+           game[0].board[i].property.houses == 0 &&
+           !game[0].board[i].property.hotel)
         {
             count++;
         }
@@ -577,90 +590,89 @@ int countUndevelopedProperties(int playerIndex)
     return count;
 }
 
-
-void buyProperty(int playerIndex)
+void buyProperty(GameState game[], int playerIndex)
 {
     int pos;
     int price;
 
-    pos = players[playerIndex].position;
+    pos = game[0].players[playerIndex].position;
 
     /* Only these three square types can be purchased */
-    if(board[pos].type != PROPERTY &&
-       board[pos].type != RAILWAY &&
-       board[pos].type != UTILITY)
+    if(game[0].board[pos].type != PROPERTY &&
+       game[0].board[pos].type != RAILWAY &&
+       game[0].board[pos].type != UTILITY)
     {
         return;
     }
 
     /* Already owned by someone -> nothing to buy */
-    if(board[pos].property.owner != -1)
+    if(game[0].board[pos].property.owner != -1)
         return;
 
-    price = board[pos].property.purchasePrice;
+    price = game[0].board[pos].property.purchasePrice;
 
-    if(board[pos].type == PROPERTY)
-        price = currentMarketValue(pos);
+    if(game[0].board[pos].type == PROPERTY)
+        price = currentMarketValue(game, pos);
 
     /* Rule 5 : if the player does not buy it directly (for ANY reason -
        their strategy declined, they can't afford it, or the
        Anti-Speculation Act blocks them) the property goes to auction
        instead of just sitting there unbought forever.                  */
-    if(!shouldBuyProperty(playerIndex) || players[playerIndex].cash < price ||
-       (economy.antiSpeculationActive && board[pos].type == PROPERTY &&
-        countUndevelopedProperties(playerIndex) >= 3))
+    if(!shouldBuyProperty(game, playerIndex) || game[0].players[playerIndex].cash < price ||
+       (game[0].economy.antiSpeculationActive && game[0].board[pos].type == PROPERTY &&
+        countUndevelopedProperties(game, playerIndex) >= 3))
     {
-        runAuction(pos);
+        runAuction(game, pos);
         return;
     }
 
-    payMoney(playerIndex, price);
+    payMoney(game, playerIndex, price);
 
-    board[pos].property.owner = playerIndex;
+    game[0].board[pos].property.owner = playerIndex;
 
-    if(board[pos].type == PROPERTY)
-        players[playerIndex].propertiesOwned++;
-    else if(board[pos].type == RAILWAY)
-        players[playerIndex].railwaysOwned++;
-    else if(board[pos].type == UTILITY)
-        players[playerIndex].utilitiesOwned++;
+    if(game[0].board[pos].type == PROPERTY)
+        game[0].players[playerIndex].propertiesOwned++;
+    else if(game[0].board[pos].type == RAILWAY)
+        game[0].players[playerIndex].railwaysOwned++;
+    else if(game[0].board[pos].type == UTILITY)
+        game[0].players[playerIndex].utilitiesOwned++;
 
     printf("\n%s purchased %s for LKR %d\n",
-           players[playerIndex].name,
-           board[pos].name,
+           game[0].players[playerIndex].name,
+           game[0].board[pos].name,
            price);
 
     printf("Remaining Balance : LKR %d\n",
-           players[playerIndex].cash);
+           game[0].players[playerIndex].cash);
 }
 
 /*========================================
     PAYING RENT
 ========================================*/
 
-void payRent(int playerIndex, int diceValue)
+void payRent(GameState game[], int playerIndex, int diceValue)
 {
     int pos;
     int owner;
     int rent;
 
-    pos = players[playerIndex].position;
+    pos = game[0].players[playerIndex].position;
 
-    if(board[pos].type != PROPERTY &&
-       board[pos].type != RAILWAY &&
-       board[pos].type != UTILITY)
+    if(game[0].board[pos].type != PROPERTY &&
+       game[0].board[pos].type != RAILWAY &&
+       game[0].board[pos].type != UTILITY)
     {
         return;
     }
 
-    owner = board[pos].property.owner;
+    owner = game[0].board[pos].property.owner;
 
     /* Landing on your own square : no rent, but maybe renovate it
        if it has aged and lost value (Rule-LK 17)                  */
     if(owner == playerIndex)
     {
-        if(board[pos].type == PROPERTY)
-            tryRenovateAgeDepreciation(playerIndex, pos);
+        if(game[0].board[pos].type == PROPERTY)
+            tryRenovateAgeDepreciation(game, playerIndex, pos);
 
         return;
     }
@@ -668,37 +680,37 @@ void payRent(int playerIndex, int diceValue)
     if(owner == -1)
         return;
 
-    if(board[pos].property.mortgaged)
+    if(game[0].board[pos].property.mortgaged)
         return;
 
-    if(pos == economy.closedPropertyIndex && economy.closedPropertyRoundsLeft > 0)
+    if(pos == game[0].economy.closedPropertyIndex && game[0].economy.closedPropertyRoundsLeft > 0)
     {
         printf("\n%s landed on %s, but it is closed (Political Rally) - no rent.\n",
-               players[playerIndex].name, board[pos].name);
+               game[0].players[playerIndex].name, game[0].board[pos].name);
         return;
     }
 
-    if(board[pos].type == PROPERTY && board[pos].property.damaged)
+    if(game[0].board[pos].type == PROPERTY && game[0].board[pos].property.damaged)
     {
         printf("\n%s landed on %s, but it is damaged and collects no rent.\n",
-               players[playerIndex].name, board[pos].name);
+               game[0].players[playerIndex].name, game[0].board[pos].name);
         return;
     }
 
-    if(board[pos].type == PROPERTY)
-        rent = calculateRent(pos);
-    else if(board[pos].type == RAILWAY)
-        rent = calculateRailwayRent(owner);
+    if(game[0].board[pos].type == PROPERTY)
+        rent = calculateRent(game, pos);
+    else if(game[0].board[pos].type == RAILWAY)
+        rent = calculateRailwayRent(game, owner);
     else
-        rent = calculateUtilityRent(owner, diceValue);
+        rent = calculateUtilityRent(game, owner, diceValue);
 
-    payMoney(playerIndex, rent);
-    receiveMoney(owner, rent);
+    payMoney(game, playerIndex, rent);
+    receiveMoney(game, owner, rent);
 
     printf("\n%s landed on %s (owned by %s)\n",
-           players[playerIndex].name,
-           board[pos].name,
-           players[owner].name);
+           game[0].players[playerIndex].name,
+           game[0].board[pos].name,
+           game[0].players[owner].name);
 
     printf("Rent Paid : LKR %d\n", rent);
 }

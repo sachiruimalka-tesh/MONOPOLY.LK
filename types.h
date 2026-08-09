@@ -210,23 +210,28 @@ typedef struct
 
 /*==========================
    GLOBAL VARIABLES
+   -> There are NONE. Every piece of the game's data (the board,
+      the 4 players, and the economy) is bundled into ONE struct
+      called GameState, defined right below. main.c creates exactly
+      one GameState, and every function that needs to read or change
+      the game receives it as an ARRAY parameter of size 1, written
+      as `GameState game[]`. Passing an array never needs the `*`,
+      `->`, or `&` symbols - you just use `game[0].something`, the
+      exact same dot notation as any other struct. This is how the
+      whole project shares data between files with zero pointer
+      syntax and zero global variables.
 ==========================*/
 
-extern Square board[BOARD_SIZE];
-
-extern Player players[MAX_PLAYERS];
-
 /*==========================
-   ECONOMY (one single global instead of many)
+   ECONOMY (grouped into one struct instead of many variables)
 ==========================*/
 
 /* Every piece of "current state of the country's economy" is
    grouped into this ONE struct, instead of being lots of separate
-   global variables scattered across files. There is only one
-   economy in the whole simulation, so one global struct instance
-   (defined in economy.c, used everywhere via extern) is the
-   simplest way to share it - far fewer stray globals than having
-   20+ individual int variables floating around.                   */
+   variables scattered across files. There is only one economy in
+   the whole simulation, so one struct (living inside GameState) is
+   the simplest way to share it - far fewer stray variables than
+   having 20+ individual ints floating around.                      */
 typedef struct
 {
     /* Rule-LK 12, 13 : inflation and the interest rate new loans use */
@@ -285,6 +290,17 @@ typedef struct
 
 } Economy;
 
-extern Economy economy;
+/*==========================
+   GAME STATE (the ONE and only struct passed around
+   the whole program - this replaces every global variable)
+==========================*/
+
+typedef struct
+{
+    Square board[BOARD_SIZE];
+    Player players[MAX_PLAYERS];
+    Economy economy;
+
+} GameState;
 
 #endif

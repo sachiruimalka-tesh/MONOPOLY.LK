@@ -4,64 +4,55 @@
 #include "functions.h"
 
 /*========================================
-    GLOBAL VARIABLES
+    NOTE: no global variables, no pointers. Everything reads and
+    writes through the GameState array parameter `game`.
 ========================================*/
-
-extern Player players[MAX_PLAYERS];
-extern Square board[BOARD_SIZE];
-
-/* Note: the hotel/railway/utility rent multipliers, construction cost
-   multiplier, insurance premium multiplier, closed-property tracker,
-   income tax amount, anti-speculation flag, and event-card position
-   used in this file are all fields of the single global `economy`
-   struct (see types.h / economy.c) - nothing declared here needs to
-   be a separate global variable any more.                            */
 
 /*========================================
     SMALL HELPERS
 ========================================*/
 
 /* Change every property's purchasePrice by ratePercent (Rule-LK 14 style) */
-void changeAllPropertyValues(int ratePercent)
+void changeAllPropertyValues(GameState game[], int ratePercent)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY)
+        if(game[0].board[i].type == PROPERTY)
         {
-            board[i].property.purchasePrice =
-                applyRate(board[i].property.purchasePrice, ratePercent);
+            game[0].board[i].property.purchasePrice =
+                applyRate(game[0].board[i].property.purchasePrice, ratePercent);
         }
     }
 }
 
 /* Change purchasePrice for just one colour group */
-void changeGroupValues(PropertyGroup group, int ratePercent)
+void changeGroupValues(GameState game[], PropertyGroup group, int ratePercent)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY && board[i].property.group == group)
+        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
         {
-            board[i].property.purchasePrice =
-                applyRate(board[i].property.purchasePrice, ratePercent);
+            game[0].board[i].property.purchasePrice =
+                applyRate(game[0].board[i].property.purchasePrice, ratePercent);
         }
     }
 }
 
 /* Change house construction cost for every property */
-void changeAllHouseCosts(int ratePercent)
+void changeAllHouseCosts(GameState game[], int ratePercent)
 {
     int i;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
-        if(board[i].type == PROPERTY)
+        if(game[0].board[i].type == PROPERTY)
         {
-            board[i].property.houseCost =
-                applyRate(board[i].property.houseCost, ratePercent);
+            game[0].board[i].property.houseCost =
+                applyRate(game[0].board[i].property.houseCost, ratePercent);
         }
     }
 }
@@ -72,30 +63,30 @@ void changeAllHouseCosts(int ratePercent)
     EVENT square.
 ========================================*/
 
-void executeEvent(int playerIndex)
+void executeEvent(GameState game[], int playerIndex)
 {
     printf("\n*** NATIONAL EVENT CARD ***\n");
 
-    switch(economy.currentCardIndex)
+    switch(game[0].economy.currentCardIndex)
     {
         case 0:  /* Tourism Hype */
 
             printf("Tourism Hype : Hotels earn double rent for 5 rounds.\n");
-            economy.hotelRentMultiplierPercent = 200;
-            economy.hotelRentRoundsLeft = 5;
+            game[0].economy.hotelRentMultiplierPercent = 200;
+            game[0].economy.hotelRentRoundsLeft = 5;
             break;
 
         case 1:  /* Fuel Shortage */
 
             printf("Fuel Shortage : Railway rent doubles for 5 rounds.\n");
-            economy.railwayRentMultiplierPercent = 200;
-            economy.railwayRentRoundsLeft = 5;
+            game[0].economy.railwayRentMultiplierPercent = 200;
+            game[0].economy.railwayRentRoundsLeft = 5;
             break;
 
         case 2:  /* Heavy Floods */
 
             printf("Heavy Floods : a random coastal property is damaged.\n");
-            triggerDisaster();
+            triggerDisaster(game);
             break;
 
         case 3:  /* Political Rally */
@@ -108,7 +99,7 @@ void executeEvent(int playerIndex)
 
             for(i = 0; i < BOARD_SIZE; i++)
             {
-                if(board[i].type == PROPERTY && board[i].property.owner != -1)
+                if(game[0].board[i].type == PROPERTY && game[0].board[i].property.owner != -1)
                 {
                     candidates[count] = i;
                     count++;
@@ -117,11 +108,11 @@ void executeEvent(int playerIndex)
 
             if(count > 0)
             {
-                economy.closedPropertyIndex = candidates[rand() % count];
-                economy.closedPropertyRoundsLeft = 2;
+                game[0].economy.closedPropertyIndex = candidates[rand() % count];
+                game[0].economy.closedPropertyRoundsLeft = 2;
 
                 printf("Political Rally : %s is closed for 2 rounds.\n",
-                       board[economy.closedPropertyIndex].name);
+                       game[0].board[game[0].economy.closedPropertyIndex].name);
             }
             else
             {
@@ -133,37 +124,37 @@ void executeEvent(int playerIndex)
         case 4:  /* Stock Market Rise */
 
             printf("Stock Market Rise : All property values increase by 10%%.\n");
-            changeAllPropertyValues(10);
+            changeAllPropertyValues(game, 10);
             break;
 
         case 5:  /* Economic Downturn */
 
             printf("Economic Downturn : Property values decrease by 15%%.\n");
-            changeAllPropertyValues(-15);
+            changeAllPropertyValues(game, -15);
             break;
 
         case 6:  /* Housing Subsidy */
 
             printf("Housing Subsidy : House construction cost reduced by 30%%.\n");
-            changeAllHouseCosts(-30);
+            changeAllHouseCosts(game, -30);
             break;
 
         case 7:  /* Interest Rate Cut */
 
-            economy.loanInterestRate -= 2;
-            if(economy.loanInterestRate < 1)
-                economy.loanInterestRate = 1;
+            game[0].economy.loanInterestRate -= 2;
+            if(game[0].economy.loanInterestRate < 1)
+                game[0].economy.loanInterestRate = 1;
 
             printf("Interest Rate Cut : Loan interest reduced by 2%%. Now %d%%.\n",
-                   economy.loanInterestRate);
+                   game[0].economy.loanInterestRate);
             break;
 
         case 8:  /* Interest Rate Increase */
 
-            economy.loanInterestRate += 2;
+            game[0].economy.loanInterestRate += 2;
 
             printf("Interest Rate Increase : Loan interest increased by 2%%. Now %d%%.\n",
-                   economy.loanInterestRate);
+                   game[0].economy.loanInterestRate);
             break;
 
         case 9:  /* Tax Amnesty */
@@ -173,7 +164,7 @@ void executeEvent(int playerIndex)
             printf("Tax Amnesty : Each player receives LKR 2,000.\n");
 
             for(i = 0; i < MAX_PLAYERS; i++)
-                receiveMoney(i, 2000);
+                receiveMoney(game, i, 2000);
 
             break;
         }
@@ -181,14 +172,14 @@ void executeEvent(int playerIndex)
         case 10:  /* Power Failure */
 
             printf("Power Failure : Utility income halved for 3 rounds.\n");
-            economy.utilityRentMultiplierPercent = 50;
-            economy.utilityRentRoundsLeft = 3;
+            game[0].economy.utilityRentMultiplierPercent = 50;
+            game[0].economy.utilityRentRoundsLeft = 3;
             break;
 
         case 11:  /* Foreign Funding - treating Orange group as "commercial" */
 
             printf("Foreign Funding : Commercial property values increase by 15%%.\n");
-            changeGroupValues(ORANGE, 15);
+            changeGroupValues(game, ORANGE, 15);
             break;
 
         case 12:  /* Port Expansion */
@@ -199,10 +190,10 @@ void executeEvent(int playerIndex)
 
             for(i = 0; i < BOARD_SIZE; i++)
             {
-                if(board[i].type == RAILWAY)
+                if(game[0].board[i].type == RAILWAY)
                 {
-                    board[i].property.purchasePrice =
-                        applyRate(board[i].property.purchasePrice, 20);
+                    game[0].board[i].property.purchasePrice =
+                        applyRate(game[0].board[i].property.purchasePrice, 20);
                 }
             }
             break;
@@ -211,21 +202,21 @@ void executeEvent(int playerIndex)
         case 13:  /* Festival Season */
 
             printf("Festival Season : Hotels receive 50%% additional rent for 5 rounds.\n");
-            economy.hotelRentMultiplierPercent = 150;
-            economy.hotelRentRoundsLeft = 5;
+            game[0].economy.hotelRentMultiplierPercent = 150;
+            game[0].economy.hotelRentRoundsLeft = 5;
             break;
 
         case 14:  /* Labour Strike */
 
             printf("Labour Strike : Construction suspended for 2 rounds.\n");
-            economy.constructionSuspendedRoundsLeft = 2;
+            game[0].economy.constructionSuspendedRoundsLeft = 2;
             break;
 
         case 15:  /* Insurance Discount */
 
             printf("Insurance Discount : Premiums reduced by 20%% for 10 rounds.\n");
-            economy.insurancePremiumMultiplierPercent = 80;
-            economy.insurancePremiumRoundsLeft = 10;
+            game[0].economy.insurancePremiumMultiplierPercent = 80;
+            game[0].economy.insurancePremiumRoundsLeft = 10;
             break;
 
         case 16:  /* Property Revaluation */
@@ -235,7 +226,7 @@ void executeEvent(int playerIndex)
             group = (PropertyGroup)(rand() % NO_GROUP);
 
             printf("Property Revaluation : one property group appreciates by 15%%.\n");
-            changeGroupValues(group, 15);
+            changeGroupValues(game, group, 15);
             break;
         }
 
@@ -247,12 +238,12 @@ void executeEvent(int playerIndex)
 
             for(i = 0; i < BOARD_SIZE; i++)
             {
-                if(board[i].type == PROPERTY)
+                if(game[0].board[i].type == PROPERTY)
                 {
-                    board[i].property.houseCost =
-                        applyRate(board[i].property.houseCost, 10);
-                    board[i].property.hotelCost =
-                        applyRate(board[i].property.hotelCost, 10);
+                    game[0].board[i].property.houseCost =
+                        applyRate(game[0].board[i].property.houseCost, 10);
+                    game[0].board[i].property.hotelCost =
+                        applyRate(game[0].board[i].property.hotelCost, 10);
                 }
             }
             break;
@@ -265,16 +256,16 @@ void executeEvent(int playerIndex)
             lucky = rand() % MAX_PLAYERS;
 
             printf("Government Grant : %s receives LKR 5,000.\n",
-                   players[lucky].name);
+                   game[0].players[lucky].name);
 
-            receiveMoney(lucky, 5000);
+            receiveMoney(game, lucky, 5000);
             break;
         }
 
         case 19:  /* National Disaster */
 
             printf("National Disaster : a random developed property is damaged.\n");
-            triggerDisaster();
+            triggerDisaster(game);
             break;
 
         default:
@@ -283,7 +274,7 @@ void executeEvent(int playerIndex)
     }
 
     /* "Return the card to the bottom of the deck" - just move on */
-    economy.currentCardIndex = (economy.currentCardIndex + 1) % 20;
+    game[0].economy.currentCardIndex = (game[0].economy.currentCardIndex + 1) % 20;
 }
 
 /*========================================
@@ -292,7 +283,7 @@ void executeEvent(int playerIndex)
     and affect every player.
 ========================================*/
 
-void triggerEconomicEvent(void)
+void triggerEconomicEvent(GameState game[])
 {
     int choice;
 
@@ -308,9 +299,9 @@ void triggerEconomicEvent(void)
             printf("Hotels receive double rent for 15 rounds.\n");
             printf("Southern Province properties increase in value by 15%%.\n");
 
-            economy.hotelRentMultiplierPercent = 200;
-            economy.hotelRentRoundsLeft = 15;
-            changeGroupValues(YELLOW, 15);   /* Galle Fort, Unawatuna, Hikkaduwa */
+            game[0].economy.hotelRentMultiplierPercent = 200;
+            game[0].economy.hotelRentRoundsLeft = 15;
+            changeGroupValues(game, YELLOW, 15);   /* Galle Fort, Unawatuna, Hikkaduwa */
             break;
 
         case 1:  /* Fuel Crisis */
@@ -319,10 +310,10 @@ void triggerEconomicEvent(void)
             printf("Railway rent doubles for 15 rounds.\n");
             printf("Property development costs increase 20%% for 15 rounds.\n");
 
-            economy.railwayRentMultiplierPercent = 200;
-            economy.railwayRentRoundsLeft = 15;
-            economy.constructionCostMultiplierPercent = 120;
-            economy.constructionCostRoundsLeft = 15;
+            game[0].economy.railwayRentMultiplierPercent = 200;
+            game[0].economy.railwayRentRoundsLeft = 15;
+            game[0].economy.constructionCostMultiplierPercent = 120;
+            game[0].economy.constructionCostRoundsLeft = 15;
             break;
 
         case 2:  /* Heavy Monsoon */
@@ -331,9 +322,9 @@ void triggerEconomicEvent(void)
             printf("Insurance premiums increase for 15 rounds.\n");
             printf("Coastal properties lose 10%% value.\n");
 
-            economy.insurancePremiumMultiplierPercent = 115;
-            economy.insurancePremiumRoundsLeft = 15;
-            changeGroupValues(YELLOW, -10);
+            game[0].economy.insurancePremiumMultiplierPercent = 115;
+            game[0].economy.insurancePremiumRoundsLeft = 15;
+            changeGroupValues(game, YELLOW, -10);
             break;
 
         case 3:  /* Economic Recession */
@@ -344,18 +335,18 @@ void triggerEconomicEvent(void)
             printf("Property values decrease 15%%. Rent decreases 10%%.\n");
             printf("Loan interest increases by 15%%.\n");
 
-            changeAllPropertyValues(-15);
+            changeAllPropertyValues(game, -15);
 
             for(i = 0; i < BOARD_SIZE; i++)
             {
-                if(board[i].type == PROPERTY)
+                if(game[0].board[i].type == PROPERTY)
                 {
-                    board[i].property.baseRent =
-                        applyRate(board[i].property.baseRent, -10);
+                    game[0].board[i].property.baseRent =
+                        applyRate(game[0].board[i].property.baseRent, -10);
                 }
             }
 
-            economy.loanInterestRate = applyRate(economy.loanInterestRate, 15);
+            game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, 15);
             break;
         }
 
@@ -364,8 +355,8 @@ void triggerEconomicEvent(void)
             printf("Stock Market Boom\n");
             printf("Property values increase 10%%. Loan interest decreases 10%%.\n");
 
-            changeAllPropertyValues(10);
-            economy.loanInterestRate = applyRate(economy.loanInterestRate, -10);
+            changeAllPropertyValues(game, 10);
+            game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, -10);
             break;
 
         case 5:  /* Government Housing Programme */
@@ -373,7 +364,7 @@ void triggerEconomicEvent(void)
             printf("Government Housing Programme\n");
             printf("House construction costs reduce 25%%.\n");
 
-            changeAllHouseCosts(-25);
+            changeAllHouseCosts(game, -25);
             break;
 
         case 6:  /* Foreign Investment */
@@ -381,7 +372,7 @@ void triggerEconomicEvent(void)
             printf("Foreign Investment\n");
             printf("Commercial properties increase 20%%.\n");
 
-            changeGroupValues(ORANGE, 20);
+            changeGroupValues(game, ORANGE, 20);
             break;
 
         case 7:  /* Political Unrest */
@@ -389,8 +380,8 @@ void triggerEconomicEvent(void)
             printf("Political Unrest\n");
             printf("Hotel rent drops by 50%% for 15 rounds.\n");
 
-            economy.hotelRentMultiplierPercent = 50;
-            economy.hotelRentRoundsLeft = 15;
+            game[0].economy.hotelRentMultiplierPercent = 50;
+            game[0].economy.hotelRentRoundsLeft = 15;
             break;
 
         default:
@@ -404,7 +395,7 @@ void triggerEconomicEvent(void)
     Happen automatically every 20 rounds.
 ========================================*/
 
-void triggerGovernmentRegulation(void)
+void triggerGovernmentRegulation(GameState game[])
 {
     int choice;
 
@@ -416,23 +407,23 @@ void triggerGovernmentRegulation(void)
     {
         case 0:  /* Increase Property Tax */
 
-            economy.incomeTaxAmount = applyRate(economy.incomeTaxAmount, 50);
+            game[0].economy.incomeTaxAmount = applyRate(game[0].economy.incomeTaxAmount, 50);
 
-            if(economy.incomeTaxAmount > 5000)
-                economy.incomeTaxAmount = 5000;
+            if(game[0].economy.incomeTaxAmount > 5000)
+                game[0].economy.incomeTaxAmount = 5000;
 
             printf("Increase Property Tax\n");
-            printf("Income Tax increased by 50%%. Now LKR %d.\n", economy.incomeTaxAmount);
+            printf("Income Tax increased by 50%%. Now LKR %d.\n", game[0].economy.incomeTaxAmount);
             break;
 
         case 1:  /* Reduce Loan Interest */
 
-            economy.loanInterestRate -= 2;
-            if(economy.loanInterestRate < 1)
-                economy.loanInterestRate = 1;
+            game[0].economy.loanInterestRate -= 2;
+            if(game[0].economy.loanInterestRate < 1)
+                game[0].economy.loanInterestRate = 1;
 
             printf("Reduce Loan Interest\n");
-            printf("Interest decreased by 2%%. Now %d%%.\n", economy.loanInterestRate);
+            printf("Interest decreased by 2%%. Now %d%%.\n", game[0].economy.loanInterestRate);
             break;
 
         case 2:  /* Housing Subsidy */
@@ -440,7 +431,7 @@ void triggerGovernmentRegulation(void)
             printf("Housing Subsidy\n");
             printf("House construction costs reduced by 30%%.\n");
 
-            changeAllHouseCosts(-30);
+            changeAllHouseCosts(game, -30);
             break;
 
         case 3:  /* Luxury Property Tax */
@@ -453,11 +444,11 @@ void triggerGovernmentRegulation(void)
 
             for(i = 0; i < BOARD_SIZE; i++)
             {
-                if(board[i].type == PROPERTY && board[i].property.hotel &&
-                   board[i].property.owner != -1)
+                if(game[0].board[i].type == PROPERTY && game[0].board[i].property.hotel &&
+                   game[0].board[i].property.owner != -1)
                 {
-                    tax = (currentMarketValue(i) * 25) / 100;
-                    payMoney(board[i].property.owner, tax);
+                    tax = (currentMarketValue(game, i) * 25) / 100;
+                    payMoney(game, game[0].board[i].property.owner, tax);
                 }
             }
             break;
@@ -468,8 +459,8 @@ void triggerGovernmentRegulation(void)
             printf("Railway Modernization\n");
             printf("Railway rents increase 25%% for 20 rounds.\n");
 
-            economy.railwayRentMultiplierPercent = 125;
-            economy.railwayRentRoundsLeft = 20;
+            game[0].economy.railwayRentMultiplierPercent = 125;
+            game[0].economy.railwayRentRoundsLeft = 20;
             break;
 
         case 5:  /* Electricity Tariff Revision */
@@ -477,8 +468,8 @@ void triggerGovernmentRegulation(void)
             printf("Electricity Tariff Revision\n");
             printf("Utility rents increase 20%% for 20 rounds.\n");
 
-            economy.utilityRentMultiplierPercent = 120;
-            economy.utilityRentRoundsLeft = 20;
+            game[0].economy.utilityRentMultiplierPercent = 120;
+            game[0].economy.utilityRentRoundsLeft = 20;
             break;
 
         case 6:  /* Insurance Regulation */
@@ -486,8 +477,8 @@ void triggerGovernmentRegulation(void)
             printf("Insurance Regulation\n");
             printf("Insurance premiums decrease 15%% for 20 rounds. Coverage unchanged.\n");
 
-            economy.insurancePremiumMultiplierPercent = 85;
-            economy.insurancePremiumRoundsLeft = 20;
+            game[0].economy.insurancePremiumMultiplierPercent = 85;
+            game[0].economy.insurancePremiumRoundsLeft = 20;
             break;
 
         case 7:  /* Anti-Speculation Act */
@@ -495,7 +486,7 @@ void triggerGovernmentRegulation(void)
             printf("Anti-Speculation Act\n");
             printf("Players may now own at most three undeveloped properties.\n");
 
-            economy.antiSpeculationActive = 1;
+            game[0].economy.antiSpeculationActive = 1;
             break;
 
         default:
@@ -509,50 +500,50 @@ void triggerGovernmentRegulation(void)
     Called once at the end of each round.
 ========================================*/
 
-void decrementEventTimers(void)
+void decrementEventTimers(GameState game[])
 {
-    if(economy.hotelRentRoundsLeft > 0)
+    if(game[0].economy.hotelRentRoundsLeft > 0)
     {
-        economy.hotelRentRoundsLeft--;
-        if(economy.hotelRentRoundsLeft == 0)
-            economy.hotelRentMultiplierPercent = 100;
+        game[0].economy.hotelRentRoundsLeft--;
+        if(game[0].economy.hotelRentRoundsLeft == 0)
+            game[0].economy.hotelRentMultiplierPercent = 100;
     }
 
-    if(economy.railwayRentRoundsLeft > 0)
+    if(game[0].economy.railwayRentRoundsLeft > 0)
     {
-        economy.railwayRentRoundsLeft--;
-        if(economy.railwayRentRoundsLeft == 0)
-            economy.railwayRentMultiplierPercent = 100;
+        game[0].economy.railwayRentRoundsLeft--;
+        if(game[0].economy.railwayRentRoundsLeft == 0)
+            game[0].economy.railwayRentMultiplierPercent = 100;
     }
 
-    if(economy.utilityRentRoundsLeft > 0)
+    if(game[0].economy.utilityRentRoundsLeft > 0)
     {
-        economy.utilityRentRoundsLeft--;
-        if(economy.utilityRentRoundsLeft == 0)
-            economy.utilityRentMultiplierPercent = 100;
+        game[0].economy.utilityRentRoundsLeft--;
+        if(game[0].economy.utilityRentRoundsLeft == 0)
+            game[0].economy.utilityRentMultiplierPercent = 100;
     }
 
-    if(economy.constructionCostRoundsLeft > 0)
+    if(game[0].economy.constructionCostRoundsLeft > 0)
     {
-        economy.constructionCostRoundsLeft--;
-        if(economy.constructionCostRoundsLeft == 0)
-            economy.constructionCostMultiplierPercent = 100;
+        game[0].economy.constructionCostRoundsLeft--;
+        if(game[0].economy.constructionCostRoundsLeft == 0)
+            game[0].economy.constructionCostMultiplierPercent = 100;
     }
 
-    if(economy.insurancePremiumRoundsLeft > 0)
+    if(game[0].economy.insurancePremiumRoundsLeft > 0)
     {
-        economy.insurancePremiumRoundsLeft--;
-        if(economy.insurancePremiumRoundsLeft == 0)
-            economy.insurancePremiumMultiplierPercent = 100;
+        game[0].economy.insurancePremiumRoundsLeft--;
+        if(game[0].economy.insurancePremiumRoundsLeft == 0)
+            game[0].economy.insurancePremiumMultiplierPercent = 100;
     }
 
-    if(economy.constructionSuspendedRoundsLeft > 0)
-        economy.constructionSuspendedRoundsLeft--;
+    if(game[0].economy.constructionSuspendedRoundsLeft > 0)
+        game[0].economy.constructionSuspendedRoundsLeft--;
 
-    if(economy.closedPropertyRoundsLeft > 0)
+    if(game[0].economy.closedPropertyRoundsLeft > 0)
     {
-        economy.closedPropertyRoundsLeft--;
-        if(economy.closedPropertyRoundsLeft == 0)
-            economy.closedPropertyIndex = -1;
+        game[0].economy.closedPropertyRoundsLeft--;
+        if(game[0].economy.closedPropertyRoundsLeft == 0)
+            game[0].economy.closedPropertyIndex = -1;
     }
 }

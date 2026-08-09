@@ -3,23 +3,21 @@
 #include "functions.h"
 
 /*========================================
-    GLOBAL VARIABLES
+    NOTE: no global variables, no pointers - everything reads and
+    writes through the GameState array parameter `game`.
 ========================================*/
-
-extern Player players[MAX_PLAYERS];
-extern Square board[BOARD_SIZE];
 
 /*========================================
     What price should the auction open at?
     (Rule-LK 19 : 50% of market value)
 ========================================*/
 
-int getAskingValue(int propIndex)
+int getAskingValue(GameState game[], int propIndex)
 {
-    if(board[propIndex].type == PROPERTY)
-        return currentMarketValue(propIndex);
+    if(game[0].board[propIndex].type == PROPERTY)
+        return currentMarketValue(game, propIndex);
 
-    return board[propIndex].property.purchasePrice;
+    return game[0].board[propIndex].property.purchasePrice;
 }
 
 /*========================================
@@ -27,7 +25,7 @@ int getAskingValue(int propIndex)
     (Rule-LK 19 - 23)
 ========================================*/
 
-void runAuction(int propIndex)
+void runAuction(GameState game[], int propIndex)
 {
     int active[MAX_PLAYERS];
     int activeCount;
@@ -38,9 +36,9 @@ void runAuction(int propIndex)
     int safetyRounds;
 
     printf("\n*** AUCTION ***\n");
-    printf("Property : %s\n", board[propIndex].name);
+    printf("Property : %s\n", game[0].board[propIndex].name);
 
-    currentBid = getAskingValue(propIndex) / 2;
+    currentBid = getAskingValue(game, propIndex) / 2;
     printf("Opening Bid : LKR %d\n", currentBid);
 
     highBidder = -1;
@@ -48,7 +46,7 @@ void runAuction(int propIndex)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
-        active[i] = !players[i].bankrupt;
+        active[i] = !game[0].players[i].bankrupt;
 
         if(active[i])
             activeCount++;
@@ -70,19 +68,19 @@ void runAuction(int propIndex)
 
             candidateBid = currentBid + 250;   /* Rule-LK 20 */
 
-            if(willingToBid(i, propIndex, candidateBid))
+            if(willingToBid(game, i, propIndex, candidateBid))
             {
                 currentBid = candidateBid;
                 highBidder = i;
 
-                printf("%s bids LKR %d.\n", players[i].name, currentBid);
+                printf("%s bids LKR %d.\n", game[0].players[i].name, currentBid);
             }
             else
             {
                 active[i] = 0;
                 activeCount--;
 
-                printf("%s withdraws.\n", players[i].name);
+                printf("%s withdraws.\n", game[0].players[i].name);
             }
         }
 
@@ -93,21 +91,21 @@ void runAuction(int propIndex)
     if(highBidder == -1)
     {
         printf("No bids received. %s remains with the Bank.\n",
-               board[propIndex].name);
+               game[0].board[propIndex].name);
         return;
     }
 
-    payMoney(highBidder, currentBid);
+    payMoney(game, highBidder, currentBid);
 
-    board[propIndex].property.owner = highBidder;
+    game[0].board[propIndex].property.owner = highBidder;
 
-    if(board[propIndex].type == PROPERTY)
-        players[highBidder].propertiesOwned++;
-    else if(board[propIndex].type == RAILWAY)
-        players[highBidder].railwaysOwned++;
-    else if(board[propIndex].type == UTILITY)
-        players[highBidder].utilitiesOwned++;
+    if(game[0].board[propIndex].type == PROPERTY)
+        game[0].players[highBidder].propertiesOwned++;
+    else if(game[0].board[propIndex].type == RAILWAY)
+        game[0].players[highBidder].railwaysOwned++;
+    else if(game[0].board[propIndex].type == UTILITY)
+        game[0].players[highBidder].utilitiesOwned++;
 
     printf("%s wins the auction for LKR %d.\n",
-           players[highBidder].name, currentBid);
+           game[0].players[highBidder].name, currentBid);
 }

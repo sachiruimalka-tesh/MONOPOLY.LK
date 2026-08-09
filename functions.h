@@ -3,14 +3,21 @@
 
 #include "types.h"
 
+/* Almost every function below takes `GameState game[]` as its first
+   parameter - the whole board, all 4 players, and the economy, all
+   passed in as a plain array (never a pointer). A handful of small
+   "pure" helper functions that don't touch the game at all (dice
+   rolling, percentage maths, simple lookups) don't need it.        */
+
 /*=============================
         board.c
 =============================*/
 
-void initializeBoard(void);
-void displayBoard(void);
+void initializeBoard(GameState game[]);
+void displayBoard(GameState game[]);
 
-void setProperty(int index,
+void setProperty(GameState game[],
+                 int index,
                  char name[],
                  PropertyGroup group,
                  int purchasePrice,
@@ -19,10 +26,11 @@ void setProperty(int index,
                  int houseCost,
                  int hotelCost);
 
-void setRailway(int index, char name[], int purchasePrice);
-void setUtility(int index, char name[], int purchasePrice);
+void setRailway(GameState game[], int index, char name[], int purchasePrice);
+void setUtility(GameState game[], int index, char name[], int purchasePrice);
 
-void setSpecialSquare(int index,
+void setSpecialSquare(GameState game[],
+                      int index,
                       SquareType type,
                       char name[]);
 
@@ -30,159 +38,161 @@ void setSpecialSquare(int index,
         players.c
 =============================*/
 
-void initializePlayers(void);
-void displayPlayers(void);
+void initializePlayers(GameState game[]);
+void displayPlayers(GameState game[]);
 
-int shouldBuyProperty(int playerIndex);
-int shouldConstruct(int playerIndex, int cost);
-int wantsLoan(int playerIndex);
-int wantsToRepayLoan(int playerIndex);
-InsuranceType desiredInsurance(int playerIndex, int propIndex);
-int shouldRenovateAgeDepreciation(int playerIndex, int depreciationPercent);
-int shouldMaintain(int playerIndex, int condition, int cost);
-int willingToBid(int playerIndex, int propIndex, int candidateBid);
-int shouldMortgage(int playerIndex);
-int shouldRedeemMortgage(int playerIndex, int redeemCost);
+int shouldBuyProperty(GameState game[], int playerIndex);
+int shouldConstruct(GameState game[], int playerIndex, int cost);
+int wantsLoan(GameState game[], int playerIndex);
+int wantsToRepayLoan(GameState game[], int playerIndex);
+InsuranceType desiredInsurance(GameState game[], int playerIndex, int propIndex);
+int shouldRenovateAgeDepreciation(GameState game[], int playerIndex, int depreciationPercent);
+int shouldMaintain(GameState game[], int playerIndex, int condition, int cost);
+int willingToBid(GameState game[], int playerIndex, int propIndex, int candidateBid);
+int shouldMortgage(GameState game[], int playerIndex);
+int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost);
 
 /*=============================
         finance.c
 =============================*/
 
-void buyProperty(int playerIndex);
+void buyProperty(GameState game[], int playerIndex);
 
-void payRent(int playerIndex, int diceValue);
+void payRent(GameState game[], int playerIndex, int diceValue);
 
-void payTax(int playerIndex, int amount);
+void payTax(GameState game[], int playerIndex, int amount);
 
-void payMoney(int playerIndex, int amount);
+void payMoney(GameState game[], int playerIndex, int amount);
 
-void liquidateBankruptAssets(int playerIndex);
+void liquidateBankruptAssets(GameState game[], int playerIndex);
 
-void receiveMoney(int playerIndex, int amount);
+void receiveMoney(GameState game[], int playerIndex, int amount);
 
-int calculatePropertyValue(int playerIndex);
-int calculateBuildingValue(int playerIndex);
-int calculateNetWorth(int playerIndex);
+int calculatePropertyValue(GameState game[], int playerIndex);
+int calculateBuildingValue(GameState game[], int playerIndex);
+int calculateNetWorth(GameState game[], int playerIndex);
 
-int findPropertyToMortgage(int playerIndex);
-int findMortgagedProperty(int playerIndex);
-void mortgageProperty(int playerIndex);
-void redeemMortgage(int playerIndex);
-void handleMortgageDecisions(int playerIndex);
+int findPropertyToMortgage(GameState game[], int playerIndex);
+int findMortgagedProperty(GameState game[], int playerIndex);
+void mortgageProperty(GameState game[], int playerIndex);
+void redeemMortgage(GameState game[], int playerIndex);
+void handleMortgageDecisions(GameState game[], int playerIndex);
 
-int calculateRent(int position);
-int calculateRailwayRent(int playerIndex);
-int calculateUtilityRent(int playerIndex, int diceValue);
-int countUndevelopedProperties(int playerIndex);
+int calculateRent(GameState game[], int position);
+int calculateRailwayRent(GameState game[], int playerIndex);
+int calculateUtilityRent(GameState game[], int playerIndex, int diceValue);
+int countUndevelopedProperties(GameState game[], int playerIndex);
 
-int groupSize(PropertyGroup group);
-int ownsMonopoly(int playerIndex, PropertyGroup group);
-void developGroup(int playerIndex, PropertyGroup group);
-void constructBuildings(int playerIndex);
+int groupSize(GameState game[], PropertyGroup group);
+int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group);
+void developGroup(GameState game[], int playerIndex, PropertyGroup group);
+void constructBuildings(GameState game[], int playerIndex);
 
 /*=============================
         game.c
 =============================*/
 
-void startGame(void);
+void startGame(GameState game[]);
 
-void playGame(int turnOrder[]);
+void playGame(GameState game[], int turnOrder[]);
 
-void playTurn(int playerIndex);
+int playTurn(GameState game[], int playerIndex);
 
-void movePlayer(int playerIndex,
-                int dice);
+int movePlayer(GameState game[], int playerIndex, int dice);
 
 int rollDice(void);
 
-int handleJail(int playerIndex);
+int handleJail(GameState game[], int playerIndex);
 
-void determineTurnOrder(int turnOrder[]);
+int resolveGroup(GameState game[], int groupPlayers[], int groupSize,
+                   int output[], int startIndex);
 
-void displayRoundSummary(int round);
+void determineTurnOrder(GameState game[], int turnOrder[]);
 
-int countSolventPlayers(void);
+void displayRoundSummary(GameState game[], int round);
 
-int countHouses(int playerIndex);
-int countHotels(int playerIndex);
+int countSolventPlayers(GameState game[]);
 
-int determineWinner(void);
-void displayFinalResults(void);
+int countHouses(GameState game[], int playerIndex);
+int countHotels(GameState game[], int playerIndex);
+
+int determineWinner(GameState game[]);
+void displayFinalResults(GameState game[]);
 
 /*=============================
         events.c
 =============================*/
 
-void executeEvent(int playerIndex);
-void triggerEconomicEvent(void);
-void triggerGovernmentRegulation(void);
-void decrementEventTimers(void);
-void changeAllPropertyValues(int ratePercent);
-void changeGroupValues(PropertyGroup group, int ratePercent);
-void changeAllHouseCosts(int ratePercent);
+void executeEvent(GameState game[], int playerIndex);
+void triggerEconomicEvent(GameState game[]);
+void triggerGovernmentRegulation(GameState game[]);
+void decrementEventTimers(GameState game[]);
+void changeAllPropertyValues(GameState game[], int ratePercent);
+void changeGroupValues(GameState game[], PropertyGroup group, int ratePercent);
+void changeAllHouseCosts(GameState game[], int ratePercent);
 
 /*=============================
         market.c
 =============================*/
 
-void initMarket(void);
-const char *groupName(PropertyGroup group);
-PropertyGroup pickEligibleGroup(int currentRound, int avoid1, int avoid2);
-void reviewPropertyMarket(int currentRound);
-void drawRegionalCard(void);
-void decrementMarketTimers(void);
-void displayMarketConditions(void);
+void initMarket(GameState game[]);
+void groupName(PropertyGroup group, char buffer[]);
+PropertyGroup pickEligibleGroup(GameState game[], int currentRound, int avoid1, int avoid2);
+void reviewPropertyMarket(GameState game[], int currentRound);
+void drawRegionalCard(GameState game[]);
+void decrementMarketTimers(GameState game[]);
+void displayMarketConditions(GameState game[]);
 
 /*=============================
         bank.c
 =============================*/
 
-int totalEligibleCollateral(int playerIndex);
-int calculateMaxLoan(int playerIndex);
-void obtainLoan(int playerIndex);
-void repayLoan(int playerIndex, int amount);
-void handleBankVisit(int playerIndex);
-void demolishBuildingsOn(int index);
-void foreclose(int playerIndex);
-void processLoans(void);
+int totalEligibleCollateral(GameState game[], int playerIndex);
+int calculateMaxLoan(GameState game[], int playerIndex);
+void obtainLoan(GameState game[], int playerIndex);
+void repayLoan(GameState game[], int playerIndex, int amount);
+void handleBankVisit(GameState game[], int playerIndex);
+void demolishBuildingsOn(GameState game[], int index);
+void foreclose(GameState game[], int playerIndex);
+void processLoans(GameState game[]);
 
 /*=============================
         insurance.c
 =============================*/
 
-int propertyValue(int propIndex);
-int repairCost(int propIndex);
+int propertyValue(GameState game[], int propIndex);
+int repairCost(GameState game[], int propIndex);
 int isCovered(InsuranceType policy, DisasterType disaster);
 int compensationPercent(InsuranceType policy);
-void purchaseInsurance(int playerIndex, int propIndex, InsuranceType type);
-int findPropertyToInsure(int playerIndex);
-void handleInsuranceVisit(int playerIndex);
-void tryAutoRepair(int playerIndex);
-void triggerDisaster(void);
-void processInsuranceExpiry(void);
+void purchaseInsurance(GameState game[], int playerIndex, int propIndex, InsuranceType type);
+int findPropertyToInsure(GameState game[], int playerIndex);
+void handleInsuranceVisit(GameState game[], int playerIndex);
+void tryAutoRepair(GameState game[], int playerIndex);
+void triggerDisaster(GameState game[]);
+void processInsuranceExpiry(GameState game[]);
 
 /*=============================
         economy.c
 =============================*/
 
 int applyRate(int oldValue, int ratePercent);
-void initEconomy(void);
-void applyInflation(void);
+void initEconomy(GameState game[]);
+void applyInflation(GameState game[]);
 
-int currentMarketValue(int propIndex);
-void ageProperties(void);
-void tryRenovateAgeDepreciation(int playerIndex, int propIndex);
+int currentMarketValue(GameState game[], int propIndex);
+void ageProperties(GameState game[]);
+void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex);
 
 int rentConditionPercent(int condition);
-void ageBuildings(void);
-void performMaintenance(int playerIndex);
-void renovateStructuralDamage(int playerIndex);
+void ageBuildings(GameState game[]);
+void performMaintenance(GameState game[], int playerIndex);
+void renovateStructuralDamage(GameState game[], int playerIndex);
 
 /*=============================
         auction.c
 =============================*/
 
-int getAskingValue(int propIndex);
-void runAuction(int propIndex);
+int getAskingValue(GameState game[], int propIndex);
+void runAuction(GameState game[], int propIndex);
 
 #endif
