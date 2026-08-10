@@ -65,6 +65,15 @@ void changeAllHouseCosts(GameState game[], int ratePercent)
 
 void executeEvent(GameState game[], int playerIndex)
 {
+    /* playerIndex isn't used by any card's effect right now - most
+       National Event Cards affect the board/economy globally rather
+       than just the player who drew the card (a documented
+       simplification, see Chapter 2.16 of the study guide). It's
+       still a parameter here so every card COULD target the
+       drawing player specifically if a future card needed to.
+       (void)playerIndex; tells the compiler this is on purpose. */
+    (void)playerIndex;
+
     printf("\n*** NATIONAL EVENT CARD ***\n");
 
     switch(game[0].economy.currentCardIndex)
