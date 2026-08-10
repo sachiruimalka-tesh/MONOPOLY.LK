@@ -51,6 +51,7 @@ int shouldMaintain(GameState game[], int playerIndex, int condition, int cost);
 int willingToBid(GameState game[], int playerIndex, int propIndex, int candidateBid);
 int shouldMortgage(GameState game[], int playerIndex);
 int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost);
+int shouldPayBail(GameState game[], int playerIndex);
 
 /*=============================
         finance.c

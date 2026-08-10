@@ -85,6 +85,27 @@ int handleJail(GameState game[], int playerIndex)
     if(!game[0].players[playerIndex].inJail)
         return 0;
 
+    /* Rule 13 : paying bail is available on ANY turn in jail, not
+       just as a forced last resort after 3 failed attempts. Give the
+       player the choice first, before ever rolling the dice.        */
+    if(shouldPayBail(game, playerIndex) &&
+       game[0].players[playerIndex].cash >= JAIL_BAIL)
+    {
+        printf("%s chooses to pay bail of LKR %d and is released from Jail.\n",
+               game[0].players[playerIndex].name, JAIL_BAIL);
+
+        payMoney(game, playerIndex, JAIL_BAIL);
+
+        game[0].players[playerIndex].inJail = 0;
+        game[0].players[playerIndex].jailTurns = 0;
+
+        /* Paying bail voluntarily means this turn continues
+           completely normally - roll and move, same as any other
+           turn - so we report "wasn't in jail" (0) rather than
+           "turn ends here" (1).                                    */
+        return 0;
+    }
+
     die1 = rand() % 6 + 1;
     die2 = rand() % 6 + 1;
 
@@ -111,7 +132,8 @@ int handleJail(GameState game[], int playerIndex)
 
     if(game[0].players[playerIndex].jailTurns >= 3)
     {
-        printf("%s pays bail of LKR %d and is released from Jail.\n",
+        printf("%s has been in Jail for 3 turns - must pay bail of "
+               "LKR %d and is released.\n",
                game[0].players[playerIndex].name, JAIL_BAIL);
 
         payMoney(game, playerIndex, JAIL_BAIL);
@@ -119,7 +141,9 @@ int handleJail(GameState game[], int playerIndex)
         game[0].players[playerIndex].inJail = 0;
         game[0].players[playerIndex].jailTurns = 0;
 
-        /* Player is released but does not move this turn */
+        /* This is the FORCED bail after 3 failed turns, not a choice -
+           the player already used this turn trying (and failing) to
+           roll doubles, so they still don't move again this turn.   */
         return 1;
     }
 

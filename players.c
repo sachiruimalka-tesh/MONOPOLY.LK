@@ -448,3 +448,47 @@ int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost)
        healthy amount of cash left over afterwards                */
     return (game[0].players[playerIndex].cash - redeemCost >= redeemCost);
 }
+
+/*========================================
+    Does this player choose to voluntarily
+    pay bail to leave jail immediately,
+    rather than gambling on rolling doubles?
+    (Rule 13 - paying bail is available on
+    ANY turn in jail, not just as a last
+    resort. The assignment doesn't specify
+    which strategies prefer which option, so
+    this is a documented, reasonable
+    assumption per strategy.)
+========================================*/
+
+int shouldPayBail(GameState game[], int playerIndex)
+{
+    switch(game[0].players[playerIndex].strategy)
+    {
+        case CONSERVATIVE_BANKER:
+
+            /* Cautious - doesn't like wasting turns stuck in jail,
+               pays immediately if it can comfortably afford to     */
+
+            return (game[0].players[playerIndex].cash >= 1500);
+
+        case RISK_TAKER:
+
+            /* Prefers to gamble on doubles rather than spend money -
+               only ever pays via the forced 3-turn rule            */
+
+            return 0;
+
+        case AGGRESSIVE_INVESTOR:
+        case OPPORTUNISTIC_TRADER:
+
+            /* Pays if cash is healthy, otherwise tries for doubles
+               first to save the money for investing                */
+
+            return (game[0].players[playerIndex].cash >= 5000);
+
+        default:
+
+            return 0;
+    }
+}
