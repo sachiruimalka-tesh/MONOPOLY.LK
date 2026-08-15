@@ -2,19 +2,6 @@
 #include "types.h"
 #include "functions.h"
 
-/*========================================
-    NOTE: no global variables and no pointers are used anywhere in
-    this file. Every function that needs the board, the players, or
-    the economy receives the whole GameState as an array parameter
-    (`GameState game[]`), and reads/writes it using plain dot and
-    bracket notation: game[0].board[...], game[0].players[...],
-    game[0].economy....
-========================================*/
-
-/*========================================
-    MONEY HELPERS
-========================================*/
-
 void receiveMoney(GameState game[], int playerIndex, int amount)
 {
     game[0].players[playerIndex].cash += amount;
@@ -36,13 +23,8 @@ void payMoney(GameState game[], int playerIndex, int amount)
     }
 }
 
-/*========================================
-    Rule 14 : when a player goes bankrupt,
-    every building they own is demolished
-    and every property/railway/utility they
-    own is auctioned off (Rule-LK 19).
-========================================*/
-
+/* Rule 14: on bankruptcy, buildings are demolished and every
+   property/railway/utility owned is auctioned off (Rule-LK 19). */
 void liquidateBankruptAssets(GameState game[], int playerIndex)
 {
     int i;
@@ -50,8 +32,6 @@ void liquidateBankruptAssets(GameState game[], int playerIndex)
     printf("%s's remaining assets are being liquidated.\n",
            game[0].players[playerIndex].name);
 
-    /* The unpaid loan (if any) is simply written off - there is
-       nothing left to collect from a bankrupt player            */
     game[0].players[playerIndex].loan.active = 0;
     game[0].players[playerIndex].loan.amount = 0;
     game[0].players[playerIndex].loan.interestRate = 0;
@@ -94,21 +74,6 @@ void payTax(GameState game[], int playerIndex, int amount)
     payMoney(game, playerIndex, amount);
 }
 
-/*========================================
-    MORTGAGING (Rule 7, and the "Mortgage
-    Value" / "Mortgage Status" property
-    attributes from Section 1.1)
-
-    A player can mortgage an undeveloped
-    property/railway/utility they own to get
-    quick cash. A mortgaged square earns no
-    rent (Rule 7) and cannot be used as loan
-    collateral (Rule-LK 1) until it is
-    redeemed by paying back the mortgage
-    value plus 10% interest.
-========================================*/
-
-/* Find one property this player could mortgage right now */
 int findPropertyToMortgage(GameState game[], int playerIndex)
 {
     int i;
@@ -122,11 +87,9 @@ int findPropertyToMortgage(GameState game[], int playerIndex)
             continue;
 
         if(game[0].board[i].property.loanLocked)
-            continue;   /* already pledged to a loan */
+            continue;
 
-        /* A developed property must be undeveloped before it can be
-           mortgaged (standard Monopoly rule - can't mortgage land
-           that still has houses/a hotel standing on it)             */
+        /* must be undeveloped before it can be mortgaged */
         if(game[0].board[i].type == PROPERTY &&
            (game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel))
         {
@@ -139,7 +102,6 @@ int findPropertyToMortgage(GameState game[], int playerIndex)
     return -1;
 }
 
-/* Find one of this player's mortgaged properties */
 int findMortgagedProperty(GameState game[], int playerIndex)
 {
     int i;
@@ -188,7 +150,7 @@ void redeemMortgage(GameState game[], int playerIndex)
     if(propIndex == -1)
         return;
 
-    /* Standard rule : pay back the mortgage value plus 10% interest */
+    /* pay back the mortgage value plus 10% interest */
     redeemCost = (game[0].board[propIndex].property.mortgageValue * 110) / 100;
 
     if(!shouldRedeemMortgage(game, playerIndex, redeemCost))
@@ -207,24 +169,14 @@ void redeemMortgage(GameState game[], int playerIndex)
            redeemCost);
 }
 
-/* Step 7 of a turn : "Complete financial transactions" (Rule 3) */
 void handleMortgageDecisions(GameState game[], int playerIndex)
 {
-    /* Try to pay off a mortgage first if things are going well,
-       otherwise consider raising quick cash by mortgaging something */
     redeemMortgage(game, playerIndex);
     mortgageProperty(game, playerIndex);
 }
 
-/*========================================
-    RENT CALCULATION
-========================================*/
-
-/* Rent for a normal PROPERTY square, based on houses/hotel (Table 6),
-   scaled down if the building's condition is poor (Table 3).
-   NOTE: this used to grab a pointer to the property to save typing;
-   it now just reads game[0].board[position].property fields directly
-   instead, exactly like every other function in the project.        */
+/* Rent for a normal property, based on houses/hotel (Table 6),
+   scaled by any active bonuses and by building condition (Table 3). */
 int calculateRent(GameState game[], int position)
 {
     int rent;
@@ -242,25 +194,25 @@ int calculateRent(GameState game[], int position)
     condition = game[0].board[position].property.condition;
 
     if(hotel)
+    {
         rent = baseRent * 10;
+    }
     else
     {
-        switch(houses)
-        {
-            case 0:  rent = baseRent * 1; break;
-            case 1:  rent = baseRent * 2; break;
-            case 2:  rent = baseRent * 3; break;
-            case 3:  rent = baseRent * 5; break;
-            case 4:  rent = baseRent * 7; break;
-            default: rent = baseRent;     break;
-        }
+        if(houses == 0)
+            rent = baseRent * 1;
+        else if(houses == 1)
+            rent = baseRent * 2;
+        else if(houses == 2)
+            rent = baseRent * 3;
+        else if(houses == 3)
+            rent = baseRent * 5;
+        else
+            rent = baseRent * 7;
     }
 
-    /* Apply any active Dynamic Market / Regional Card rent effect
-       on this property's colour group (Sections 2.9, 2.10)         */
     rent = (rent * game[0].economy.groupRentMultiplier[group]) / 100;
 
-    /* Apply any active hotel rent bonus/penalty from events (Section 2.5/2.7) */
     if(hotel)
         rent = (rent * game[0].economy.hotelRentMultiplierPercent) / 100;
 
@@ -273,11 +225,12 @@ int calculateRent(GameState game[], int position)
     return rent;
 }
 
-/* Rent for a railway station, based on Table 7 (how many the owner has) */
+/* Rent for a railway, based on how many the same owner has (Table 7). */
 int calculateRailwayRent(GameState game[], int playerIndex)
 {
     int i;
     int count;
+    int baseRent;
 
     count = 0;
 
@@ -290,17 +243,21 @@ int calculateRailwayRent(GameState game[], int playerIndex)
         }
     }
 
-    switch(count)
-    {
-        case 1:  return (250  * game[0].economy.railwayRentMultiplierPercent) / 100;
-        case 2:  return (500  * game[0].economy.railwayRentMultiplierPercent) / 100;
-        case 3:  return (1000 * game[0].economy.railwayRentMultiplierPercent) / 100;
-        case 4:  return (2000 * game[0].economy.railwayRentMultiplierPercent) / 100;
-        default: return 0;
-    }
+    if(count == 1)
+        baseRent = 250;
+    else if(count == 2)
+        baseRent = 500;
+    else if(count == 3)
+        baseRent = 1000;
+    else if(count == 4)
+        baseRent = 2000;
+    else
+        baseRent = 0;
+
+    return (baseRent * game[0].economy.railwayRentMultiplierPercent) / 100;
 }
 
-/* Rent for a utility, based on Table 8 (dice value just rolled) */
+/* Rent for a utility, based on the dice roll just made (Table 8). */
 int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
 {
     int i;
@@ -326,12 +283,6 @@ int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
     return 0;
 }
 
-/*========================================
-    MONOPOLY / BUILDING CONSTRUCTION
-    (Rules 8, 9, 10)
-========================================*/
-
-/* How many PROPERTY squares belong to this colour group in total? */
 int groupSize(GameState game[], PropertyGroup group)
 {
     int i;
@@ -348,7 +299,6 @@ int groupSize(GameState game[], PropertyGroup group)
     return count;
 }
 
-/* Does this player own every property in the given colour group? */
 int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group)
 {
     int i;
@@ -368,9 +318,9 @@ int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group)
     return (owned == groupSize(game, group));
 }
 
-/* Try to build one house (or one hotel) somewhere in this colour group.
-   Building must stay even : we always add to the property with the
-   fewest houses first (Rule 9).                                        */
+/* Builds one house (or upgrades to a hotel) somewhere in this
+   colour group. Always adds to whichever property currently has the
+   fewest houses, so development stays even (Rule 9). */
 void developGroup(GameState game[], int playerIndex, PropertyGroup group)
 {
     int i;
@@ -403,12 +353,9 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
         }
     }
 
-    /* Every property already has a hotel - nothing left to build */
     if(targetIndex == -1)
-        return;
+        return;   /* every property already has a hotel */
 
-    /* Case 1 : every property in the group already has 4 houses ->
-                 try to upgrade the target property to a hotel      */
     if(allFourHouses)
     {
         int hotelCost;
@@ -436,7 +383,6 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
         return;
     }
 
-    /* Case 2 : build one more house on the property with the fewest */
     {
         int houseCost;
 
@@ -461,13 +407,12 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
     }
 }
 
-/* Called once per turn : look at every colour group and try to build */
 void constructBuildings(GameState game[], int playerIndex)
 {
     PropertyGroup group;
 
     if(game[0].economy.constructionSuspendedRoundsLeft > 0)
-        return;   /* Labour Strike / Fuel Crisis event active */
+        return;
 
     for(group = BROWN; group < NO_GROUP; group++)
     {
@@ -475,25 +420,10 @@ void constructBuildings(GameState game[], int playerIndex)
     }
 }
 
-/*========================================
-    NET WORTH (Rule 15)
-    Net Worth = Cash + Property Value + Building Value
-                + Railway Value + Utility Value
-                + Insurance Claims Receivable
-                - Outstanding Loans - Accrued Interest - Taxes Due
-
-    NOTE for the viva : three of these terms are always 0 in this
-    simulation, and that is a deliberate simplification, not a bug -
-    insurance compensation is paid out immediately when a disaster
-    happens (there is no "pending claim" to track), income tax is
-    always paid immediately too (there is no unpaid-tax balance to
-    carry forward), and loan interest is compounded directly into
-    loan.amount every round rather than kept as a separate number.
-    So those three terms are included in the formula for correctness,
-    but they simplify to 0 given how the rest of the program works.
-========================================*/
-
-/* Property + Railway + Utility value, all combined into one number */
+/* Rule 15 net worth formula. Three terms are always 0 in this
+   simulation - insurance claims are paid immediately, tax is always
+   paid immediately, and loan interest is folded into loan.amount -
+   so there's never a pending balance for those three to track. */
 int calculatePropertyValue(GameState game[], int playerIndex)
 {
     int i;
@@ -515,7 +445,6 @@ int calculatePropertyValue(GameState game[], int playerIndex)
     return total;
 }
 
-/* Value of all houses/hotels the player has built */
 int calculateBuildingValue(GameState game[], int playerIndex)
 {
     int i;
@@ -540,6 +469,11 @@ int calculateBuildingValue(GameState game[], int playerIndex)
     return total;
 }
 
+/* Rule 15 net worth formula. Three terms are always 0 in this
+   simulation - insurance claims are paid out immediately, tax is
+   always paid immediately, and loan interest is folded straight
+   into loan.amount - so there is never a pending balance for any
+   of those three to carry forward. */
 int calculateNetWorth(GameState game[], int playerIndex)
 {
     int cash;
@@ -554,9 +488,9 @@ int calculateNetWorth(GameState game[], int playerIndex)
     propertyValue = calculatePropertyValue(game, playerIndex);
     buildingValue = calculateBuildingValue(game, playerIndex);
 
-    insuranceClaimsReceivable = 0;   /* see note above */
-    accruedInterest = 0;              /* already folded into loan.amount */
-    taxesDue = 0;                     /* taxes are always paid immediately */
+    insuranceClaimsReceivable = 0;
+    accruedInterest = 0;
+    taxesDue = 0;
 
     outstandingLoans = game[0].players[playerIndex].loan.active ?
                         game[0].players[playerIndex].loan.amount : 0;
@@ -564,10 +498,6 @@ int calculateNetWorth(GameState game[], int playerIndex)
     return cash + propertyValue + buildingValue + insuranceClaimsReceivable
            - outstandingLoans - accruedInterest - taxesDue;
 }
-
-/*========================================
-    BUYING PROPERTY / RAILWAY / UTILITY
-========================================*/
 
 int countUndevelopedProperties(GameState game[], int playerIndex)
 {
@@ -594,10 +524,10 @@ void buyProperty(GameState game[], int playerIndex)
 {
     int pos;
     int price;
+    int wantsToBuy;
 
     pos = game[0].players[playerIndex].position;
 
-    /* Only these three square types can be purchased */
     if(game[0].board[pos].type != PROPERTY &&
        game[0].board[pos].type != RAILWAY &&
        game[0].board[pos].type != UTILITY)
@@ -605,22 +535,27 @@ void buyProperty(GameState game[], int playerIndex)
         return;
     }
 
-    /* Already owned by someone -> nothing to buy */
     if(game[0].board[pos].property.owner != -1)
-        return;
+        return;   /* already owned */
 
     price = game[0].board[pos].property.purchasePrice;
 
     if(game[0].board[pos].type == PROPERTY)
         price = currentMarketValue(game, pos);
 
-    /* Rule 5 : if the player does not buy it directly (for ANY reason -
-       their strategy declined, they can't afford it, or the
-       Anti-Speculation Act blocks them) the property goes to auction
-       instead of just sitting there unbought forever.                  */
-    if(!shouldBuyProperty(game, playerIndex) || game[0].players[playerIndex].cash < price ||
-       (game[0].economy.antiSpeculationActive && game[0].board[pos].type == PROPERTY &&
-        countUndevelopedProperties(game, playerIndex) >= 3))
+    wantsToBuy = shouldBuyProperty(game, playerIndex);
+
+    if(game[0].players[playerIndex].cash < price)
+        wantsToBuy = 0;
+
+    if(game[0].economy.antiSpeculationActive && game[0].board[pos].type == PROPERTY)
+    {
+        if(countUndevelopedProperties(game, playerIndex) >= 3)
+            wantsToBuy = 0;
+    }
+
+    /* Rule 5: if they don't buy directly, it goes to auction */
+    if(!wantsToBuy)
     {
         runAuction(game, pos);
         return;
@@ -646,10 +581,6 @@ void buyProperty(GameState game[], int playerIndex)
            game[0].players[playerIndex].cash);
 }
 
-/*========================================
-    PAYING RENT
-========================================*/
-
 void payRent(GameState game[], int playerIndex, int diceValue)
 {
     int pos;
@@ -667,13 +598,11 @@ void payRent(GameState game[], int playerIndex, int diceValue)
 
     owner = game[0].board[pos].property.owner;
 
-    /* Landing on your own square : no rent, but maybe renovate it
-       if it has aged and lost value (Rule-LK 17)                  */
     if(owner == playerIndex)
     {
+        /* landed on your own square - no rent, maybe renovate */
         if(game[0].board[pos].type == PROPERTY)
             tryRenovateAgeDepreciation(game, playerIndex, pos);
-
         return;
     }
 

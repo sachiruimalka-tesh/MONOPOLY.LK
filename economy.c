@@ -3,12 +3,6 @@
 #include "types.h"
 #include "functions.h"
 
-/*========================================
-    NOTE: no global variables, no pointers. initEconomy() fills in
-    the game[0].economy part of whatever GameState it's given - it
-    doesn't own or create anything global any more.
-========================================*/
-
 void initEconomy(GameState game[])
 {
     game[0].economy.inflationRate = 0;
@@ -41,14 +35,7 @@ void initEconomy(GameState game[])
     game[0].economy.currentCardIndex = 0;
 }
 
-/*========================================
-    Apply New = Old * (1 + rate/100) to a
-    value, never letting it drop below 1
-    (Rule-LK 14). This one doesn't touch the
-    game state at all, so it stays a small,
-    plain helper with no GameState parameter.
-========================================*/
-
+/* Rule-LK 14: New = Old x (1 + rate/100), never below 1. */
 int applyRate(int oldValue, int ratePercent)
 {
     int newValue;
@@ -61,11 +48,8 @@ int applyRate(int oldValue, int ratePercent)
     return newValue;
 }
 
-/*========================================
-    INFLATION (Section 2.3)
-    Runs every 10 rounds.
-========================================*/
-
+/* Every 10 rounds, a random inflation rate is applied to every
+   property's price, rent, and construction costs. */
 void applyInflation(GameState game[])
 {
     int possibleRates[6] = {-3, 0, 2, 5, 8, 12};
@@ -106,19 +90,15 @@ void applyInflation(GameState game[])
         }
     }
 
-    /* New loans (not existing ones) follow inflation too - Rule-LK 13 */
     game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, rate);
 
     printf("New Loan Interest Rate : %d%%\n", game[0].economy.loanInterestRate);
 }
 
-/*========================================
-    PROPERTY AGE & DEPRECIATION
-    (Rule-LK 15, 16)
-========================================*/
-
-/* "Current market value" after depreciation is taken into account.
-   Used for insurance premiums, repair costs, and renovation costs. */
+/* A property's real current worth: purchase price, minus age
+   depreciation, adjusted by any active market conditions. Reused
+   everywhere a "real price" is needed - buying, insurance, repairs,
+   renovation, net worth - so all of them stay consistent. */
 int currentMarketValue(GameState game[], int propIndex)
 {
     int price;
@@ -130,8 +110,6 @@ int currentMarketValue(GameState game[], int propIndex)
 
     price = price - (price * depreciation) / 100;
 
-    /* Also apply any active Dynamic Market / Regional Card effect
-       on this property's colour group (Sections 2.9, 2.10)         */
     if(game[0].board[propIndex].type == PROPERTY)
     {
         group = game[0].board[propIndex].property.group;
@@ -141,6 +119,8 @@ int currentMarketValue(GameState game[], int propIndex)
     return price;
 }
 
+/* Rule-LK 15, 16: properties get older every round, and lose value
+   past age 50. */
 void ageProperties(GameState game[])
 {
     int i;
@@ -167,12 +147,7 @@ void ageProperties(GameState game[])
     }
 }
 
-/*========================================
-    RENOVATE AWAY AGE DEPRECIATION (Rule-LK 17)
-    Called when a player lands on their OWN
-    developed-or-not property.
-========================================*/
-
+/* Rule-LK 17: landing on your own aged property offers a renovation. */
 void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex)
 {
     int cost;
@@ -196,7 +171,6 @@ void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex
     game[0].board[propIndex].property.age = 0;
     game[0].board[propIndex].property.depreciation = 0;
 
-    /* Renovation "increases rental" - a small permanent 5% bump */
     game[0].board[propIndex].property.baseRent =
         applyRate(game[0].board[propIndex].property.baseRent, 5);
 
@@ -206,23 +180,23 @@ void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex
     printf("Renovation Cost : LKR %d\n", cost);
 }
 
-/*========================================
-    BUILDING CONDITION & MAINTENANCE
-    (Rule-LK 25 - 29)
-========================================*/
-
-/* Table 3 : how much rent a building actually collects,
-   based on its condition. Pure lookup - no game state needed. */
+/* Table 3: rent collected as a percentage of building condition. */
 int rentConditionPercent(int condition)
 {
-    if(condition >= 90)  return 100;
-    if(condition >= 75)  return 90;
-    if(condition >= 50)  return 75;
-    if(condition >= 25)  return 50;
+    if(condition >= 90)
+        return 100;
+    if(condition >= 75)
+        return 90;
+    if(condition >= 50)
+        return 75;
+    if(condition >= 25)
+        return 50;
 
-    return 0;   /* Below 25% - building closed */
+    return 0;   /* below 25% - building closed */
 }
 
+/* Rule-LK 25, 28: building condition wears down every round, and
+   20+ rounds of neglect causes lasting structural damage. */
 void ageBuildings(GameState game[])
 {
     int i;
@@ -233,9 +207,8 @@ void ageBuildings(GameState game[])
             continue;
 
         if(game[0].board[i].property.houses == 0 && !game[0].board[i].property.hotel)
-            continue;   /* nothing built here yet */
+            continue;
 
-        /* Condition wears down 2% every round (Rule-LK 25) */
         game[0].board[i].property.condition -= 2;
 
         if(game[0].board[i].property.condition < 0)
@@ -243,14 +216,11 @@ void ageBuildings(GameState game[])
 
         game[0].board[i].property.roundsSinceMaintenance++;
 
-        /* Rule-LK 28 : 20+ rounds neglected -> structural damage */
         if(game[0].board[i].property.roundsSinceMaintenance > 20 &&
            !game[0].board[i].property.structurallyDamaged)
         {
             game[0].board[i].property.structurallyDamaged = 1;
 
-            /* Remember the values from just before the damage,
-               so a later renovation can restore them exactly    */
             game[0].board[i].property.preDamagePurchasePrice =
                 game[0].board[i].property.purchasePrice;
             game[0].board[i].property.preDamageBaseRent =
@@ -273,11 +243,7 @@ void ageBuildings(GameState game[])
     }
 }
 
-/*========================================
-    REGULAR MAINTENANCE (Rule-LK 27)
-    Called at the start of a player's turn.
-========================================*/
-
+/* Rule-LK 27: restores a building's condition to 100% for a fee. */
 void performMaintenance(GameState game[], int playerIndex)
 {
     int i;
@@ -296,10 +262,10 @@ void performMaintenance(GameState game[], int playerIndex)
             continue;
 
         if(game[0].board[i].property.structurallyDamaged)
-            continue;   /* needs a full renovation instead, see below */
+            continue;   /* needs a full renovation instead */
 
         if(game[0].board[i].property.condition >= 100)
-            continue;   /* nothing to fix */
+            continue;
 
         if(game[0].board[i].property.hotel)
             baseCost = (game[0].board[i].property.hotelCost * 8) / 100;
@@ -326,11 +292,7 @@ void performMaintenance(GameState game[], int playerIndex)
     }
 }
 
-/*========================================
-    FULL RENOVATION AFTER STRUCTURAL DAMAGE
-    (Rule-LK 29)
-========================================*/
-
+/* Rule-LK 29: fully restores a structurally damaged building. */
 void renovateStructuralDamage(GameState game[], int playerIndex)
 {
     int i;
@@ -348,9 +310,10 @@ void renovateStructuralDamage(GameState game[], int playerIndex)
         if(!game[0].board[i].property.structurallyDamaged)
             continue;
 
-        replacementValue = game[0].board[i].property.hotel ?
-                            game[0].board[i].property.hotelCost :
-                            game[0].board[i].property.houseCost;
+        if(game[0].board[i].property.hotel)
+            replacementValue = game[0].board[i].property.hotelCost;
+        else
+            replacementValue = game[0].board[i].property.houseCost;
 
         cost = (replacementValue * 25) / 100;
 

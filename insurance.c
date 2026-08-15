@@ -3,35 +3,18 @@
 #include "types.h"
 #include "functions.h"
 
-/*========================================
-    NOTE: no global variables, no pointers - everything is read and
-    written through the GameState array parameter `game`.
-========================================*/
-
-/*========================================
-    "Current value" of a property, used to
-    work out premiums and repair costs.
-========================================*/
-
 int propertyValue(GameState game[], int propIndex)
 {
     return currentMarketValue(game, propIndex);
 }
 
-/* Assumption: repairing storm/fire/etc damage costs 30% of the
-   property's value. The assignment does not give an exact figure,
-   so this is a reasonable fixed rule used consistently everywhere. */
+/* Assumption: repair costs 30% of the property's value. The
+   assignment doesn't give an exact figure, so this is used
+   consistently everywhere repair cost is needed. */
 int repairCost(GameState game[], int propIndex)
 {
     return (propertyValue(game, propIndex) * 30) / 100;
 }
-
-/*========================================
-    Does a given insurance policy cover a
-    given disaster type? (Section 1.2 / E)
-    (This one doesn't need the game state at all - it's a pure
-    lookup based only on the two values it was given.)
-========================================*/
 
 int isCovered(InsuranceType policy, DisasterType disaster)
 {
@@ -39,29 +22,21 @@ int isCovered(InsuranceType policy, DisasterType disaster)
         return 0;
 
     if(policy == BASIC_INSURANCE)
-    {
-        /* Basic only covers Fire and Flood */
         return (disaster == FIRE || disaster == FLOOD);
-    }
 
-    /* Comprehensive and Business Interruption cover everything */
-    return 1;
+    return 1;   /* Comprehensive and Business Interruption cover everything */
 }
 
 int compensationPercent(InsuranceType policy)
 {
-    switch(policy)
-    {
-        case BASIC_INSURANCE:            return 80;
-        case COMPREHENSIVE_INSURANCE:    return 100;
-        case BUSINESS_INTERRUPTION:      return 100;
-        default:                         return 0;
-    }
-}
+    if(policy == BASIC_INSURANCE)
+        return 80;
 
-/*========================================
-    BUYING / RENEWING INSURANCE
-========================================*/
+    if(policy == COMPREHENSIVE_INSURANCE || policy == BUSINESS_INTERRUPTION)
+        return 100;
+
+    return 0;
+}
 
 void purchaseInsurance(GameState game[], int playerIndex, int propIndex, InsuranceType type)
 {
@@ -69,16 +44,16 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     int premium;
     int premiumPercent;
 
+    if(type == BASIC_INSURANCE)
+        premiumPercent = 5;
+    else if(type == COMPREHENSIVE_INSURANCE)
+        premiumPercent = 10;
+    else if(type == BUSINESS_INTERRUPTION)
+        premiumPercent = 15;
+    else
+        return;
+
     value = propertyValue(game, propIndex);
-
-    switch(type)
-    {
-        case BASIC_INSURANCE:          premiumPercent = 5;  break;
-        case COMPREHENSIVE_INSURANCE:  premiumPercent = 10; break;
-        case BUSINESS_INTERRUPTION:    premiumPercent = 15; break;
-        default:                       return;
-    }
-
     premium = (value * premiumPercent) / 100;
     premium = (premium * game[0].economy.insurancePremiumMultiplierPercent) / 100;
 
@@ -97,12 +72,6 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     printf("Premium : LKR %d\n", premium);
 }
 
-/*========================================
-    Find one of this player's developed,
-    uninsured properties that their strategy
-    wants to insure.
-========================================*/
-
 int findPropertyToInsure(GameState game[], int playerIndex)
 {
     int i;
@@ -116,10 +85,10 @@ int findPropertyToInsure(GameState game[], int playerIndex)
             continue;
 
         if(game[0].board[i].property.houses == 0 && !game[0].board[i].property.hotel)
-            continue;   /* not developed - nothing worth insuring yet */
+            continue;   /* not developed yet */
 
         if(game[0].board[i].property.insurance != NO_INSURANCE)
-            continue;   /* already insured */
+            continue;
 
         if(desiredInsurance(game, playerIndex, i) != NO_INSURANCE)
             return i;
@@ -127,11 +96,6 @@ int findPropertyToInsure(GameState game[], int playerIndex)
 
     return -1;
 }
-
-/*========================================
-    WHAT HAPPENS WHEN A PLAYER LANDS ON
-    AN INSURANCE SQUARE
-========================================*/
 
 void handleInsuranceVisit(GameState game[], int playerIndex)
 {
@@ -154,13 +118,8 @@ void handleInsuranceVisit(GameState game[], int playerIndex)
     purchaseInsurance(game, playerIndex, propIndex, type);
 }
 
-/*========================================
-    AUTOMATIC REPAIR (Rule-LK 11)
-    Called at the start of a player's turn -
-    if they can now afford it, damaged
-    buildings are fixed automatically.
-========================================*/
-
+/* Rule-LK 11: fixes a disaster-damaged building automatically once
+   the owner can afford it. Called at the start of every turn. */
 void tryAutoRepair(GameState game[], int playerIndex)
 {
     int i;
@@ -189,12 +148,8 @@ void tryAutoRepair(GameState game[], int playerIndex)
     }
 }
 
-/*========================================
-    DISASTERS (Rule-LK 10)
-    Happens every 10 rounds, hits one random
-    developed property (any owner).
-========================================*/
-
+/* Rule-LK 10: every 10 rounds, one random developed property may
+   be hit by a disaster. */
 void triggerDisaster(GameState game[])
 {
     int developed[BOARD_SIZE];
@@ -219,7 +174,7 @@ void triggerDisaster(GameState game[])
     }
 
     if(developedCount == 0)
-        return;   /* nothing built yet - no disaster possible */
+        return;
 
     chosen = developed[rand() % developedCount];
     disaster = (DisasterType)(rand() % 5);
@@ -227,14 +182,16 @@ void triggerDisaster(GameState game[])
 
     printf("\n*** DISASTER ***\n");
 
-    switch(disaster)
-    {
-        case FIRE:                printf("Fire occurred.\n");               break;
-        case FLOOD:                printf("Flood occurred.\n");             break;
-        case RIOT:                 printf("Riot occurred.\n");              break;
-        case BUILDING_COLLAPSE:    printf("Building Collapse occurred.\n"); break;
-        case ELECTRICAL_FAILURE:   printf("Electrical Failure occurred.\n");break;
-    }
+    if(disaster == FIRE)
+        printf("Fire occurred.\n");
+    else if(disaster == FLOOD)
+        printf("Flood occurred.\n");
+    else if(disaster == RIOT)
+        printf("Riot occurred.\n");
+    else if(disaster == BUILDING_COLLAPSE)
+        printf("Building Collapse occurred.\n");
+    else
+        printf("Electrical Failure occurred.\n");
 
     printf("Affected Property : %s (owner : %s)\n",
            game[0].board[chosen].name, game[0].players[owner].name);
@@ -249,10 +206,6 @@ void triggerDisaster(GameState game[])
 
         printf("Insurance Claim Approved.\n");
         printf("Compensation Paid : LKR %d\n", compensation);
-
-        /* Business Interruption also covers 5 rounds of lost rent -
-           since the building stays fully working (not marked damaged),
-           the compensation itself stands in for that lost income. */
     }
     else
     {
@@ -262,8 +215,6 @@ void triggerDisaster(GameState game[])
         printf("Property was NOT insured against this disaster.\n");
     }
 
-    /* Whatever is still owed after compensation must be repaired
-       before the building earns rent again */
     game[0].board[chosen].property.repairCostOwed = cost - compensation;
 
     if(game[0].board[chosen].property.repairCostOwed > 0)
@@ -273,11 +224,6 @@ void triggerDisaster(GameState game[])
                game[0].board[chosen].name);
     }
 }
-
-/*========================================
-    END-OF-ROUND INSURANCE PROCESSING
-    (Rule-LK 9)
-========================================*/
 
 void processInsuranceExpiry(GameState game[])
 {

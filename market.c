@@ -4,23 +4,6 @@
 #include "types.h"
 #include "functions.h"
 
-/*========================================
-    NOTE (simplification worth mentioning in the viva) : the Dynamic
-    Market (every 10 rounds) and the Regional Development Cards
-    (every 15 rounds) both use the SAME per-group arrays inside the
-    game[0].economy struct. Since only one thing can be "the most
-    recent event" for a group at a time, if a Market event and a
-    Regional card happen to target the same group at once, whichever
-    one's timer runs out first will reset the group back to normal -
-    even if the other was technically still active. Building fully
-    independent, stackable timers per group would need a much more
-    complex data structure than fits this course, so this is a
-    deliberate, documented trade-off.
-
-    Also no global variables and no pointers here - everything reads
-    and writes through the GameState array parameter `game`.
-========================================*/
-
 void initMarket(GameState game[])
 {
     int i;
@@ -37,31 +20,30 @@ void initMarket(GameState game[])
     game[0].economy.lastDeclineGroup = -1;
 }
 
-/* Pure lookup, no game state needed. Instead of returning a pointer
-   to the text (const char *), it copies the name into a buffer the
-   caller already owns - buffer must be at least 12 characters.      */
 void groupName(PropertyGroup group, char buffer[])
 {
-    switch(group)
-    {
-        case BROWN:      strcpy(buffer, "Brown");      break;
-        case LIGHT_BLUE: strcpy(buffer, "Light Blue"); break;
-        case PINK:       strcpy(buffer, "Pink");       break;
-        case ORANGE:     strcpy(buffer, "Orange");     break;
-        case RED:        strcpy(buffer, "Red");        break;
-        case YELLOW:     strcpy(buffer, "Yellow");     break;
-        case GREEN:      strcpy(buffer, "Green");      break;
-        case DARK_BLUE:  strcpy(buffer, "Dark Blue");  break;
-        default:         strcpy(buffer, "Unknown");    break;
-    }
+    if(group == BROWN)
+        strcpy(buffer, "Brown");
+    else if(group == LIGHT_BLUE)
+        strcpy(buffer, "Light Blue");
+    else if(group == PINK)
+        strcpy(buffer, "Pink");
+    else if(group == ORANGE)
+        strcpy(buffer, "Orange");
+    else if(group == RED)
+        strcpy(buffer, "Red");
+    else if(group == YELLOW)
+        strcpy(buffer, "Yellow");
+    else if(group == GREEN)
+        strcpy(buffer, "Green");
+    else if(group == DARK_BLUE)
+        strcpy(buffer, "Dark Blue");
+    else
+        strcpy(buffer, "Unknown");
 }
 
-/*========================================
-    Pick a random group that is not
-    currently in cooldown and is not one
-    of the two groups we want to avoid.
-========================================*/
-
+/* Picks a random group that isn't on cooldown and isn't one of the
+   two groups to avoid (Rule-LK 30, 33). */
 PropertyGroup pickEligibleGroup(GameState game[], int currentRound, int avoid1, int avoid2)
 {
     int candidates[NO_GROUP];
@@ -83,19 +65,13 @@ PropertyGroup pickEligibleGroup(GameState game[], int currentRound, int avoid1, 
     }
 
     if(count == 0)
-    {
-        /* Nothing eligible (rare) - just pick anything except avoid1 */
-        return (PropertyGroup)((avoid1 + 1) % NO_GROUP);
-    }
+        return (PropertyGroup)((avoid1 + 1) % NO_GROUP);   /* rare fallback */
 
     return (PropertyGroup)candidates[rand() % count];
 }
 
-/*========================================
-    DYNAMIC PROPERTY MARKET (Rule-LK 30-34)
-    Runs every 10 rounds.
-========================================*/
-
+/* Rule-LK 30-34: every 10 rounds, one group booms and a different
+   one declines, each for 10 rounds. */
 void reviewPropertyMarket(GameState game[], int currentRound)
 {
     PropertyGroup boomGroup;
@@ -110,12 +86,8 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     groupName(declineGroup, declineName);
 
     printf("\n=== Property Market Review ===\n");
-
-    printf("Market Boom : %s (values +20%%, rent +25%%) for 10 rounds.\n",
-           boomName);
-
-    printf("Market Decline : %s (values -15%%, rent -20%%) for 10 rounds.\n",
-           declineName);
+    printf("Market Boom : %s (values +20%%, rent +25%%) for 10 rounds.\n", boomName);
+    printf("Market Decline : %s (values -15%%, rent -20%%) for 10 rounds.\n", declineName);
 
     game[0].economy.groupValueMultiplier[boomGroup] = 120;
     game[0].economy.groupRentMultiplier[boomGroup] = 125;
@@ -125,8 +97,6 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     game[0].economy.groupRentMultiplier[declineGroup] = 80;
     game[0].economy.groupRoundsLeft[declineGroup] = 10;
 
-    /* Boom also raises construction costs everywhere for a while
-       (reusing the multiplier already built in Phase 6)            */
     game[0].economy.constructionCostMultiplierPercent = 110;
     game[0].economy.constructionCostRoundsLeft = 10;
 
@@ -137,12 +107,7 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     game[0].economy.lastDeclineGroup = declineGroup;
 }
 
-/*========================================
-    REGIONAL DEVELOPMENT CARDS (Table 4)
-    One card drawn every 15 rounds, stays
-    active for 15 rounds.
-========================================*/
-
+/* Table 4: one card every 15 rounds, active for 15 rounds. */
 void drawRegionalCard(GameState game[])
 {
     int choice;
@@ -153,107 +118,87 @@ void drawRegionalCard(GameState game[])
 
     switch(choice)
     {
-        case 0:  /* Southern Tourism Boom */
-
+        case 0:
             printf("Southern Tourism Boom : Galle Fort, Unawatuna and "
                    "Hikkaduwa rental income +40%%.\n");
             game[0].economy.groupRentMultiplier[YELLOW] = 140;
             game[0].economy.groupRoundsLeft[YELLOW] = 15;
             break;
 
-        case 1:  /* Port City Expansion */
-
+        case 1:
             printf("Port City Expansion : Pettah and Maradana values +25%%.\n");
             game[0].economy.groupValueMultiplier[BROWN] = 125;
             game[0].economy.groupRoundsLeft[BROWN] = 15;
             break;
 
-        case 2:  /* IT Industry Growth */
-
+        case 2:
             printf("IT Industry Growth : Maharagama, Nugegoda and "
                    "Kottawa values +20%%.\n");
             game[0].economy.groupValueMultiplier[PINK] = 120;
             game[0].economy.groupRoundsLeft[PINK] = 15;
             break;
 
-        case 3:  /* Northern Development Programme */
-
+        case 3:
             printf("Northern Development Programme : Jaffna Town, Nallur "
                    "and Trincomalee values +30%%.\n");
             game[0].economy.groupValueMultiplier[GREEN] = 130;
             game[0].economy.groupRoundsLeft[GREEN] = 15;
             break;
 
-        case 4:  /* Tea Export Boom */
-
+        case 4:
             printf("Tea Export Boom : Nuwara Eliya value +35%%.\n");
             game[0].economy.groupValueMultiplier[DARK_BLUE] = 135;
             game[0].economy.groupRoundsLeft[DARK_BLUE] = 15;
             break;
 
-        case 5:  /* Airport Expansion */
-
+        case 5:
             printf("Airport Expansion : Negombo, Katunayake and "
                    "Ja-Ela rents +30%%.\n");
             game[0].economy.groupRentMultiplier[ORANGE] = 130;
             game[0].economy.groupRoundsLeft[ORANGE] = 15;
             break;
 
-        case 6:  /* University City Growth */
-
+        case 6:
             printf("University City Growth : Peradeniya and "
                    "Kandy City values +20%%.\n");
             game[0].economy.groupValueMultiplier[RED] = 120;
             game[0].economy.groupRoundsLeft[RED] = 15;
             break;
 
-        case 7:  /* Beach Pollution */
-
+        case 7:
             printf("Beach Pollution : Southern coastal rents -30%%.\n");
             game[0].economy.groupRentMultiplier[YELLOW] = 70;
             game[0].economy.groupRoundsLeft[YELLOW] = 15;
             break;
 
-        case 8:  /* Flood Damage */
-
+        case 8:
             printf("Flood Damage : Low-lying coastal properties lose 20%% value.\n");
             game[0].economy.groupValueMultiplier[YELLOW] = 80;
             game[0].economy.groupRoundsLeft[YELLOW] = 15;
             break;
 
-        case 9:  /* Transport Strike */
-
+        case 9:
             printf("Transport Strike : Railway revenue reduced by 40%%.\n");
             game[0].economy.railwayRentMultiplierPercent = 60;
             game[0].economy.railwayRentRoundsLeft = 15;
             break;
 
-        case 10:  /* Electricity Tariff Increase */
-
+        case 10:
             printf("Electricity Tariff Increase : Utility rent +25%%.\n");
             game[0].economy.utilityRentMultiplierPercent = 125;
             game[0].economy.utilityRentRoundsLeft = 15;
             break;
 
-        case 11:  /* Water Shortage */
-
+        case 11:
             printf("Water Shortage : Utility revenue +20%%.\n");
             game[0].economy.utilityRentMultiplierPercent = 120;
             game[0].economy.utilityRentRoundsLeft = 15;
             break;
 
         default:
-
             break;
     }
 }
-
-/*========================================
-    Count down the group timers and reset
-    anything that has expired back to
-    normal (Rule-LK 35). Called once at the
-    end of every round.
-========================================*/
 
 void decrementMarketTimers(GameState game[])
 {
@@ -274,12 +219,7 @@ void decrementMarketTimers(GameState game[])
     }
 }
 
-/*========================================
-    Rule-LK 36 : show the currently active
-    market conditions. Called at the end of
-    every round.
-========================================*/
-
+/* Rule-LK 36: shows the currently active market conditions. */
 void displayMarketConditions(GameState game[])
 {
     int g;

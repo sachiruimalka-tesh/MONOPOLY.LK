@@ -2,16 +2,7 @@
 #include "types.h"
 #include "functions.h"
 
-/*========================================
-    NOTE: no global variables, no pointers - everything reads and
-    writes through the GameState array parameter `game`.
-========================================*/
-
-/*========================================
-    What price should the auction open at?
-    (Rule-LK 19 : 50% of market value)
-========================================*/
-
+/* Rule-LK 19: opening bid is 50% of market value. */
 int getAskingValue(GameState game[], int propIndex)
 {
     if(game[0].board[propIndex].type == PROPERTY)
@@ -20,11 +11,9 @@ int getAskingValue(GameState game[], int propIndex)
     return game[0].board[propIndex].property.purchasePrice;
 }
 
-/*========================================
-    RUN AN AUCTION FOR ONE SQUARE
-    (Rule-LK 19 - 23)
-========================================*/
-
+/* Rule-LK 19-23: runs an auction among all solvent players. A
+   player who declines to bid is out permanently, so the pool of
+   bidders can only shrink - guaranteeing the loop finishes. */
 void runAuction(GameState game[], int propIndex)
 {
     int active[MAX_PLAYERS];
@@ -52,8 +41,6 @@ void runAuction(GameState game[], int propIndex)
             activeCount++;
     }
 
-    /* safetyRounds just stops any theoretical infinite loop -
-       in practice everyone withdraws within a handful of passes */
     safetyRounds = 0;
 
     while(activeCount > 1 && safetyRounds < 200)
@@ -66,7 +53,7 @@ void runAuction(GameState game[], int propIndex)
             if(activeCount <= 1)
                 break;
 
-            candidateBid = currentBid + 250;   /* Rule-LK 20 */
+            candidateBid = currentBid + 250;
 
             if(willingToBid(game, i, propIndex, candidateBid))
             {
@@ -87,7 +74,6 @@ void runAuction(GameState game[], int propIndex)
         safetyRounds++;
     }
 
-    /* Rule-LK 23 : nobody ever bid -> stays with the Bank */
     if(highBidder == -1)
     {
         printf("No bids received. %s remains with the Bank.\n",

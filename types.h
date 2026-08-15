@@ -1,10 +1,6 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-/*==========================
-    CONSTANTS
-==========================*/
-
 #define MAX_PLAYERS        4
 #define BOARD_SIZE         40
 #define MAX_NAME_LENGTH    50
@@ -18,13 +14,7 @@
 #define MAX_HOTELS         1
 
 #define LOAN_DURATION_ROUNDS   20
-#define LOAN_INTEREST_RATE     8   /* 8% - "Stable Economy" row of Table 9.
-                                       Will vary once we add the economy
-                                       phase (inflation / recessions).  */
-
-/*==========================
-    ENUMERATIONS
-==========================*/
+#define LOAN_INTEREST_RATE     8   /* starting rate, drifts with inflation */
 
 /* Board Square Types */
 typedef enum
@@ -82,7 +72,7 @@ typedef enum
 } InsuranceType;
 
 
-/* Types of disasters (Rule-LK 10) */
+/* Disaster Types (Rule-LK 10) */
 typedef enum
 {
     FIRE,
@@ -94,10 +84,6 @@ typedef enum
 } DisasterType;
 
 
-/*==========================
-        LOAN
-==========================*/
-
 typedef struct
 {
     int active;
@@ -107,10 +93,6 @@ typedef struct
 
 } Loan;
 
-
-/*==========================
-      PROPERTY
-==========================*/
 
 typedef struct
 {
@@ -125,41 +107,32 @@ typedef struct
     int houseCost;
     int hotelCost;
 
-    int owner;
+    int owner;          /* -1 means unowned */
 
     int houses;
     int hotel;
 
     int mortgaged;
-
-    int loanLocked;   /* 1 = pledged as loan collateral, cannot be
-                          sold / mortgaged / auctioned until loan is
-                          cleared (Rule-LK 3)                        */
+    int loanLocked;      /* pledged as loan collateral */
 
     InsuranceType insurance;
+    int insuranceRoundsLeft;
 
-    int insuranceRoundsLeft;   /* counts down from 20 (Rule-LK 9) */
-
-    int damaged;         /* 1 = building is damaged and earns no rent */
-    int repairCostOwed;  /* amount owner still must pay to fix it     */
+    int damaged;          /* disaster damage - no rent until repaired */
+    int repairCostOwed;
 
     int age;
     int depreciation;
 
-    int condition;
-
-    int roundsSinceMaintenance;   /* Rule-LK 27/28 : neglect counter   */
-    int structurallyDamaged;      /* Rule-LK 28 : 1 = badly neglected  */
-    int preDamagePurchasePrice;   /* remembered so we can restore it   */
-    int preDamageBaseRent;        /* remembered so we can restore it   */
-    int maintenanceCostMultiplierPercent;  /* 100 = normal, 150 = +50% */
+    int condition;               /* building condition, Rule-LK 25-27 */
+    int roundsSinceMaintenance;
+    int structurallyDamaged;
+    int preDamagePurchasePrice;   /* remembered so renovation can restore it */
+    int preDamageBaseRent;
+    int maintenanceCostMultiplierPercent;
 
 } Property;
 
-
-/*==========================
-      BOARD SQUARE
-==========================*/
 
 typedef struct
 {
@@ -173,10 +146,6 @@ typedef struct
 
 } Square;
 
-
-/*==========================
-        PLAYER
-==========================*/
 
 typedef struct
 {
@@ -202,48 +171,18 @@ typedef struct
 
     Loan loan;
 
-    int sufferedLoss;  /* has this player ever lost money to an
-                           uninsured disaster? (Risk Taker strategy) */
+    int sufferedLoss;   /* Risk Taker only insures after a loss */
 
 } Player;
 
 
-/*==========================
-   GLOBAL VARIABLES
-   -> There are NONE. Every piece of the game's data (the board,
-      the 4 players, and the economy) is bundled into ONE struct
-      called GameState, defined right below. main.c creates exactly
-      one GameState, and every function that needs to read or change
-      the game receives it as an ARRAY parameter of size 1, written
-      as `GameState game[]`. Passing an array never needs the `*`,
-      `->`, or `&` symbols - you just use `game[0].something`, the
-      exact same dot notation as any other struct. This is how the
-      whole project shares data between files with zero pointer
-      syntax and zero global variables.
-==========================*/
-
-/*==========================
-   ECONOMY (grouped into one struct instead of many variables)
-==========================*/
-
-/* Every piece of "current state of the country's economy" is
-   grouped into this ONE struct, instead of being lots of separate
-   variables scattered across files. There is only one economy in
-   the whole simulation, so one struct (living inside GameState) is
-   the simplest way to share it - far fewer stray variables than
-   having 20+ individual ints floating around.                      */
+/* Current state of the economy - inflation, interest rate, and every
+   temporary rent/cost bonus or penalty from events and the market.  */
 typedef struct
 {
-    /* Rule-LK 12, 13 : inflation and the interest rate new loans use */
     int inflationRate;
     int loanInterestRate;
 
-    /* Temporary rent bonuses/penalties from event cards, economic
-       events, and government regulations. "RoundsLeft" counts down
-       to 0, at which point the multiplier resets back to 100
-       (normal). If several events would affect the same thing, the
-       most recent one simply overwrites the last (kept simple on
-       purpose - no stacking).                                       */
     int hotelRentMultiplierPercent;
     int hotelRentRoundsLeft;
 
@@ -268,33 +207,22 @@ typedef struct
 
     int antiSpeculationActive;
 
-    /* Which National Event Card is on top of the deck (Appendix A) */
-    int currentCardIndex;
+    int currentCardIndex;   /* position in the National Event Card deck */
 
-    /* Dynamic Property Market (Section 2.9) and Regional Development
-       Cards (Section 2.10) both work by temporarily multiplying a
-       whole colour group's value/rent, then reverting back to 100
-       (normal) once the countdown ends. They share the same arrays -
-       see market.c for why, and for the one simplification this
-       causes.                                                        */
     int groupValueMultiplier[NO_GROUP];
     int groupRentMultiplier[NO_GROUP];
     int groupRoundsLeft[NO_GROUP];
-
-    /* Rule-LK 33 : a group cannot be picked again for 30 rounds */
     int groupCooldownUntilRound[NO_GROUP];
 
-    /* Rule-LK 30 : the same group cannot repeat in back-to-back reviews */
     int lastBoomGroup;
     int lastDeclineGroup;
 
 } Economy;
 
-/*==========================
-   GAME STATE (the ONE and only struct passed around
-   the whole program - this replaces every global variable)
-==========================*/
 
+/* Everything the game needs to remember, bundled into one struct so
+   it can be passed to functions as a plain array parameter instead
+   of using global variables or pointers.                            */
 typedef struct
 {
     Square board[BOARD_SIZE];
