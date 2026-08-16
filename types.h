@@ -10,6 +10,9 @@
 #define GO_MONEY           2000
 #define JAIL_BAIL          300
 
+#define INCOME_TAX_RATE        15   /* base rate at game start, drifts with market */
+#define COMMUNITY_FUND_TAX_RATE 10  /* base rate, drifts with market */
+
 #define MAX_HOUSES         4
 #define MAX_HOTELS         1
 
@@ -24,6 +27,7 @@ typedef enum
     RAILWAY,
     UTILITY,
     TAX,
+    COMMUNITY_FUND,
     EVENT,
     BANK,
     INSURANCE,
@@ -248,7 +252,7 @@ typedef struct
     int closedPropertyIndex;
     int closedPropertyRoundsLeft;
 
-    int incomeTaxAmount;
+    int incomeTaxRate;
 
     int antiSpeculationActive;
 

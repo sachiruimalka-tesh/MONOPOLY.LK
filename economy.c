@@ -14,7 +14,7 @@ void initEconomy(GameState game[])
     game[0].economy.closedPropertyIndex = -1;
     game[0].economy.closedPropertyRoundsLeft = 0;
 
-    game[0].economy.incomeTaxAmount = 1000;
+    game[0].economy.incomeTaxRate = INCOME_TAX_RATE;
 
     game[0].economy.antiSpeculationActive = 0;
 
@@ -112,6 +112,15 @@ int isModifierActive(GameState game[], ModifierType type, int group, int index)
     }
 
     return 0;
+}
+
+/* The effective tax rate used by the Income Tax and Community
+   Development Fund squares.  Starts at the given base rate (15% /
+   10%) and is scaled by the currently active global value
+   modifiers, so market fluctuations move the rate up or down. */
+int currentTaxRatePercent(GameState game[], int baseRate)
+{
+    return (baseRate * modifierMultiplier(game, MOD_VALUE_GLOBAL, -1, -1)) / 100;
 }
 
 /* Ticks every active modifier down and removes the expired ones. */

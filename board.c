@@ -145,7 +145,7 @@ void setSpecialSquare(GameState game[],
 void initializeBoard(GameState game[])
 {
     setSpecialSquare(game, 0, GO, "GO");
-    setSpecialSquare(game, 2, EVENT, "Community Development Fund");
+    setSpecialSquare(game, 2, COMMUNITY_FUND, "Community Development Fund");
     setSpecialSquare(game, 4, TAX, "Income Tax");
     setSpecialSquare(game, 7, EVENT, "National Event Card");
     setSpecialSquare(game, 10, JAIL, "Jail / Just Visiting");

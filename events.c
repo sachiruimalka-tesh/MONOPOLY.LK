@@ -285,13 +285,13 @@ void triggerGovernmentRegulation(GameState game[])
     switch(choice)
     {
         case 0:
-            game[0].economy.incomeTaxAmount = applyRate(game[0].economy.incomeTaxAmount, 50);
+            game[0].economy.incomeTaxRate = applyRate(game[0].economy.incomeTaxRate, 50);
 
-            if(game[0].economy.incomeTaxAmount > 5000)
-                game[0].economy.incomeTaxAmount = 5000;
+            if(game[0].economy.incomeTaxRate > 25)
+                game[0].economy.incomeTaxRate = 25;
 
             printf("Increase Property Tax\n");
-            printf("Income Tax increased by 50%%. Now LKR %d.\n", game[0].economy.incomeTaxAmount);
+            printf("Income Tax rate increased by 50%%. Now %d%%.\n", game[0].economy.incomeTaxRate);
             break;
 
         case 1:

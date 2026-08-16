@@ -423,5 +423,9 @@ void displayMarketConditions(GameState game[])
     printf("-----------------------\n");
     printf("%d%%\n", game[0].economy.loanInterestRate);
 
+    printf("Current Income Tax Rate\n");
+    printf("-------------------------\n");
+    printf("%d%%\n", game[0].economy.incomeTaxRate);
+
     printf("=========================================\n");
 }

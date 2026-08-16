@@ -87,12 +87,50 @@ void liquidateBankruptAssets(GameState game[], int playerIndex)
     }
 }
 
-void payTax(GameState game[], int playerIndex, int amount)
+/* Income Tax (Rule-LK): 15% of the player's net worth at the base
+   rate.  Market conditions scale the rate (currentTaxRatePercent). */
+void payTax(GameState game[], int playerIndex)
 {
+    int rate;
+    int netWorth;
+    int amount;
+
+    rate = currentTaxRatePercent(game, INCOME_TAX_RATE);
+    netWorth = calculateNetWorth(game, playerIndex);
+    amount = (netWorth * rate) / 100;
+
     printf("\n%s landed on Income Tax.\n",
            game[0].players[playerIndex].name);
 
+    printf("Tax Rate : %d%%\n", rate);
+    printf("Net Worth : LKR %d\n", netWorth);
     printf("%s paid tax : LKR %d\n",
+           game[0].players[playerIndex].name,
+           amount);
+
+    payMoney(game, playerIndex, amount);
+}
+
+/* Community Development Fund (Rule-LK): 10% of the player's total
+   assets at current market rate.  Only property (land) counts -
+   buildings are not included.  The 10% rate is scaled by market
+   conditions just like the Income Tax rate. */
+void payCommunityFundTax(GameState game[], int playerIndex)
+{
+    int rate;
+    int assets;
+    int amount;
+
+    rate = currentTaxRatePercent(game, COMMUNITY_FUND_TAX_RATE);
+    assets = calculatePropertyValue(game, playerIndex);
+    amount = (assets * rate) / 100;
+
+    printf("\n%s landed on Community Development Fund.\n",
+           game[0].players[playerIndex].name);
+
+    printf("Tax Rate : %d%%\n", rate);
+    printf("Property Assets (market rate) : LKR %d\n", assets);
+    printf("%s paid community development tax : LKR %d\n",
            game[0].players[playerIndex].name,
            amount);
 
@@ -878,13 +916,16 @@ void buyProperty(GameState game[], int playerIndex)
     if(game[0].board[pos].property.owner != -1)
         return;   /* already owned */
 
-    price = game[0].board[pos].property.purchasePrice;
+    price = currentMarketValue(game, pos);
 
     if(game[0].board[pos].type == PROPERTY)
     {
         /* Rule-LK 31/34: a booming group's direct purchase prices
-           rise by 15% (group-scoped, not global). */
-        price = (currentMarketValue(game, pos) *
+           rise by 15% (group-scoped, not global).  Railways and
+           utilities are priced at their current market value, so
+           their value modifiers (MOD_RAIL_VALUE, MOD_INDEX_VALUE)
+           affect their purchase price too. */
+        price = (price *
                  modifierMultiplier(game, MOD_PURCHASE_PRICE,
                                     game[0].board[pos].property.group, -1)) / 100;
     }

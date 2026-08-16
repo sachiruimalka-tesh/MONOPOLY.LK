@@ -50,7 +50,8 @@ int shouldPayBail(GameState game[], int playerIndex);
 
 void buyProperty(GameState game[], int playerIndex);
 void payRent(GameState game[], int playerIndex, int diceValue);
-void payTax(GameState game[], int playerIndex, int amount);
+void payTax(GameState game[], int playerIndex);
+void payCommunityFundTax(GameState game[], int playerIndex);
 void payMoney(GameState game[], int playerIndex, int amount);
 void liquidateBankruptAssets(GameState game[], int playerIndex);
 void receiveMoney(GameState game[], int playerIndex, int amount);
@@ -161,6 +162,7 @@ int isModifierActive(GameState game[], ModifierType type, int group, int index);
 void decrementModifiers(GameState game[]);
 void formatLKR(int amount, char out[]);
 int currentMarketValue(GameState game[], int propIndex);
+int currentTaxRatePercent(GameState game[], int baseRate);
 void ageProperties(GameState game[]);
 void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex);
 int rentConditionPercent(int condition);

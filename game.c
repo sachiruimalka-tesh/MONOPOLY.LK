@@ -170,7 +170,11 @@ int playTurn(GameState game[], int playerIndex)
     }
     else if(squareType == TAX)
     {
-        payTax(game, playerIndex, game[0].economy.incomeTaxAmount);
+        payTax(game, playerIndex);
+    }
+    else if(squareType == COMMUNITY_FUND)
+    {
+        payCommunityFundTax(game, playerIndex);
     }
     else if(squareType == GO_TO_JAIL)
     {

@@ -2,6 +2,21 @@
 #include "types.h"
 #include "functions.h"
 
+/* Rule-LK: each colour group has a base price that is used ONLY for
+   loan calculations (individual purchase prices are used for
+   buying).  Railways and utilities use their own mortgage value. */
+static int groupBasePrice[NO_GROUP] =
+{
+    1500,   /* BROWN */
+    2500,   /* LIGHT_BLUE */
+    3500,   /* PINK */
+    4500,   /* ORANGE */
+    5500,   /* RED */
+    6500,   /* YELLOW */
+    8000,   /* GREEN */
+    10000   /* DARK_BLUE */
+};
+
 int totalEligibleCollateral(GameState game[], int playerIndex)
 {
     int i;
@@ -30,7 +45,9 @@ int totalEligibleCollateral(GameState game[], int playerIndex)
             continue;
 
         /* Rule-LK 34: a booming group's collateral is worth 15% more,
-           a declining group's 10% less. */
+           a declining group's 10% less.  Colour property collateral
+           is based on the group base price (not the individual
+           purchase price - that is only used for buying). */
         group = -1;
 
         if(game[0].board[i].type == PROPERTY)
@@ -38,7 +55,10 @@ int totalEligibleCollateral(GameState game[], int playerIndex)
 
         mult = modifierMultiplier(game, MOD_MARKET_MORTGAGE, group, -1);
 
-        total += (game[0].board[i].property.mortgageValue * mult) / 100;
+        if(game[0].board[i].type == PROPERTY)
+            total += (groupBasePrice[group] * mult) / 100;
+        else
+            total += (game[0].board[i].property.mortgageValue * mult) / 100;
     }
 
     return total;
@@ -223,7 +243,7 @@ void increaseLoan(GameState game[], int playerIndex)
         if(game[0].board[i].type == PROPERTY)
         {
             availableCollateral +=
-                (game[0].board[i].property.mortgageValue *
+                (groupBasePrice[game[0].board[i].property.group] *
                  modifierMultiplier(game, MOD_MARKET_MORTGAGE,
                                     game[0].board[i].property.group, -1)) / 100;
         }
