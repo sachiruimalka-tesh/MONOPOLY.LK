@@ -23,6 +23,7 @@ manually re-deriving ledgers with a calculator.
 Result summary on the two post-fix logs:
   run.txt  -> 0 confirmed bugs
   run2.txt -> 0 confirmed bugs
+  run4.txt -> 0 confirmed bugs (post Income Tax clamp)
 
 Winner arithmetic is internally consistent in every game:
   run.txt:   Cash 80,354 + Property 206,495 - Loans 170,931 = 115,918
@@ -89,6 +90,26 @@ Winner arithmetic is internally consistent in every game:
   Verified    : run2.txt:2916/3853/4533/5173 now print 502/903/1,863/193;
                neither fresh log shows any GO-balance discrepancy.
 
+[CONFIRMED BUG] Income Tax could PAY the player when net worth was
+                negative.
+  File       : finance.c, payTax
+  Evidence   : run3.txt:24999-25002
+               "Opportunistic Trader landed on Income Tax."
+               "Tax Rate : 13%"
+               "Net Worth : LKR -7040"
+               "Opportunistic Trader paid tax : LKR -915"
+               The player's cash rose by 915 instead of falling: the
+               analyzer's tracked balance was 67,287 (verified against the
+               round-101 pre-tax balance) while the game reported 68,202.
+               A negative amount made payMoney() credit the player, so
+               debt actually generated income (money-printing).
+  Root cause : amount = (netWorth * rate) / 100 was applied unclamped,
+               and a bankrupt player's net worth can be negative.
+  Fix        : clamp amount to zero when it would be negative.
+  Verified    : run4.txt shows no tax payout, no cash discrepancy and
+                no other negative payment site exists (all other
+                payMoney() amounts derive from non-negative values).
+
 [CONFIRMED BUG] Rule 9 (even development) could be violated when a group
                 member was blocked from building.
   File       : finance.c, developGroup
@@ -151,11 +172,11 @@ Winner arithmetic is internally consistent in every game:
 5. CONCLUSION
 ----------------------------------------------------------------------
 Two fresh games run against the fixed build both verify with
-0 confirmed bugs. All 5 confirmed bugs have been corrected in source:
+0 confirmed bugs. All 6 confirmed bugs have been corrected in source:
   events.c   (Government Grant solvent check, Luxury Property Tax output)
   auction.c  (Anti-Speculation seller excluded from bidding)
   insurance.c (repair cost now logged)
-  finance.c  (Rule 9 even-development enforcement)
+  finance.c  (Rule 9 even-development enforcement, Income Tax clamp)
 The remaining analyzer REVIEWs are documented model/order approximations,
 not game defects. The game's economy, winner arithmetic and round
 summaries are internally consistent.

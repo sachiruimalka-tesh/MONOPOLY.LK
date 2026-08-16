@@ -130,6 +130,11 @@ void payTax(GameState game[], int playerIndex)
     netWorth = calculateNetWorth(game, playerIndex);
     amount = (netWorth * rate) / 100;
 
+    /* a bankrupt player's net worth can be negative - a tax can never
+       pay the player money, so clamp it at zero */
+    if(amount < 0)
+        amount = 0;
+
     printf("\n%s landed on Income Tax.\n",
            game[0].players[playerIndex].name);
 
@@ -639,8 +644,10 @@ int calculateNetWorth(GameState game[], int playerIndex)
     propertyValue = calculatePropertyValue(game, playerIndex);
     buildingValue = calculateBuildingValue(game, playerIndex);
 
-    outstandingLoans = game[0].players[playerIndex].loan.active ?
-                        game[0].players[playerIndex].loan.amount : 0;
+    outstandingLoans = 0;
+
+    if(game[0].players[playerIndex].loan.active)
+        outstandingLoans = game[0].players[playerIndex].loan.amount;
 
     return cash + propertyValue + buildingValue - outstandingLoans;
 }
