@@ -174,7 +174,52 @@ typedef struct
 
     int sufferedLoss;   /* Risk Taker only insures after a loss */
 
+    int antiSpecRounds; /* rounds in a row above the 3-undeveloped limit */
+
 } Player;
+
+
+/* Kinds of temporary modifiers that can be active at once.  Each
+   event, card, regulation, market review and regional card adds a
+   timed entry to Economy.modifiers[].  All matching entries are
+   multiplied together (Rule-LK 34) so effects are cumulative and
+   never permanently corrupt the base property values/costs. */
+typedef enum
+{
+    MOD_VALUE_GLOBAL,       /* all property values */
+    MOD_GROUP_VALUE,        /* one colour group's property values */
+    MOD_INDEX_VALUE,        /* a single square's value (any type) */
+    MOD_RAIL_VALUE,         /* all railway station values */
+    MOD_PURCHASE_PRICE,     /* direct purchase prices (boom +15%) */
+    MOD_RENT_GLOBAL,        /* all property/rail/utility rent */
+    MOD_GROUP_RENT,         /* one colour group's rent */
+    MOD_HOTEL_RENT,         /* hotel rent */
+    MOD_RAIL_RENT,          /* railway rent */
+    MOD_UTIL_RENT,          /* utility rent */
+    MOD_CONSTRUCTION,       /* house/hotel construction costs */
+    MOD_INSURANCE,          /* insurance premiums */
+    MOD_MARKET_MORTGAGE,    /* mortgage values (boom +15% / decline -10%) */
+    MOD_AUCTION_PRICE,      /* auction starting prices (decline -25%) */
+    MOD_FLOOD_RISK,         /* Heavy Monsoon - flood more likely */
+    MOD_RIOT_RISK,          /* Political Unrest - riot more likely */
+    MOD_BI_CLAIMS,          /* Political Unrest - business interruption claims */
+    MOD_RECESSION           /* Economic Recession - strategies may react */
+
+} ModifierType;
+
+
+typedef struct
+{
+    ModifierType type;
+    int group;      /* group for GROUP modifiers, else -1 */
+    int index;      /* square index for INDEX modifiers, else -1 */
+    int percent;    /* 100 means no change */
+    int roundsLeft;
+
+} ActiveModifier;
+
+
+#define MAX_MODIFIERS 48
 
 
 /* Current state of the economy - inflation, interest rate, and every
@@ -183,21 +228,6 @@ typedef struct
 {
     int inflationRate;
     int loanInterestRate;
-
-    int hotelRentMultiplierPercent;
-    int hotelRentRoundsLeft;
-
-    int railwayRentMultiplierPercent;
-    int railwayRentRoundsLeft;
-
-    int utilityRentMultiplierPercent;
-    int utilityRentRoundsLeft;
-
-    int constructionCostMultiplierPercent;
-    int constructionCostRoundsLeft;
-
-    int insurancePremiumMultiplierPercent;
-    int insurancePremiumRoundsLeft;
 
     int constructionSuspendedRoundsLeft;
 
@@ -210,13 +240,13 @@ typedef struct
 
     int currentCardIndex;   /* position in the National Event Card deck */
 
-    int groupValueMultiplier[NO_GROUP];
-    int groupRentMultiplier[NO_GROUP];
-    int groupRoundsLeft[NO_GROUP];
     int groupCooldownUntilRound[NO_GROUP];
 
     int lastBoomGroup;
     int lastDeclineGroup;
+
+    ActiveModifier modifiers[MAX_MODIFIERS];
+    int modifierCount;
 
 } Economy;
 

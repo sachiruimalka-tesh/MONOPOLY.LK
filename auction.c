@@ -2,13 +2,20 @@
 #include "types.h"
 #include "functions.h"
 
-/* Rule-LK 19: opening bid is 50% of market value. */
+/* Rule-LK 19: opening bid is 50% of market value.  Market declines
+   lower the starting price by 25% (Rule-LK 34). */
 int getAskingValue(GameState game[], int propIndex)
 {
-    if(game[0].board[propIndex].type == PROPERTY)
-        return currentMarketValue(game, propIndex);
+    int value;
 
-    return game[0].board[propIndex].property.purchasePrice;
+    if(game[0].board[propIndex].type == PROPERTY)
+        value = currentMarketValue(game, propIndex);
+    else
+        value = game[0].board[propIndex].property.purchasePrice;
+
+    value = (value * modifierMultiplier(game, MOD_AUCTION_PRICE, -1, -1)) / 100;
+
+    return value;
 }
 
 /* Rule-LK 19-23: runs an auction among all solvent players. A

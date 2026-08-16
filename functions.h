@@ -35,6 +35,9 @@ int shouldBuyProperty(GameState game[], int playerIndex);
 int shouldConstruct(GameState game[], int playerIndex, int cost);
 int wantsLoan(GameState game[], int playerIndex);
 int wantsToRepayLoan(GameState game[], int playerIndex);
+int wantsIncreaseLoan(GameState game[], int playerIndex);
+int wantsExtendLoan(GameState game[], int playerIndex);
+int wantsRefinance(GameState game[], int playerIndex);
 InsuranceType desiredInsurance(GameState game[], int playerIndex, int propIndex);
 int shouldRenovateAgeDepreciation(GameState game[], int playerIndex, int depreciationPercent);
 int shouldMaintain(GameState game[], int playerIndex, int condition, int cost);
@@ -67,6 +70,11 @@ int calculateRailwayRent(GameState game[], int playerIndex);
 int calculateUtilityRent(GameState game[], int playerIndex, int diceValue);
 int countUndevelopedProperties(GameState game[], int playerIndex);
 
+int wouldCompleteMonopoly(GameState game[], int playerIndex, int pos);
+void sellLowValueProperty(GameState game[], int playerIndex);
+void enforceAntiSpeculation(GameState game[]);
+void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex);
+
 int groupSize(GameState game[], PropertyGroup group);
 int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group);
 int developGroup(GameState game[], int playerIndex, PropertyGroup group);
@@ -98,9 +106,6 @@ void executeEvent(GameState game[], int playerIndex);
 void triggerEconomicEvent(GameState game[]);
 void triggerGovernmentRegulation(GameState game[]);
 void decrementEventTimers(GameState game[]);
-void changeAllPropertyValues(GameState game[], int ratePercent);
-void changeGroupValues(GameState game[], PropertyGroup group, int ratePercent);
-void changeAllHouseCosts(GameState game[], int ratePercent);
 
 /* market.c */
 
@@ -109,7 +114,6 @@ void groupName(PropertyGroup group, char buffer[]);
 PropertyGroup pickEligibleGroup(GameState game[], int currentRound, int avoid1, int avoid2);
 void reviewPropertyMarket(GameState game[], int currentRound);
 void drawRegionalCard(GameState game[]);
-void decrementMarketTimers(GameState game[]);
 void displayMarketConditions(GameState game[]);
 
 /* bank.c */
@@ -119,6 +123,9 @@ int calculateMaxLoan(GameState game[], int playerIndex);
 void obtainLoan(GameState game[], int playerIndex);
 void repayLoan(GameState game[], int playerIndex, int amount);
 void handleBankVisit(GameState game[], int playerIndex);
+void increaseLoan(GameState game[], int playerIndex);
+void extendLoan(GameState game[], int playerIndex);
+void refinanceLoan(GameState game[], int playerIndex);
 void demolishBuildingsOn(GameState game[], int index);
 void foreclose(GameState game[], int playerIndex);
 void processLoans(GameState game[]);
@@ -127,10 +134,12 @@ void processLoans(GameState game[]);
 
 int propertyValue(GameState game[], int propIndex);
 int repairCost(GameState game[], int propIndex);
+DisasterType pickDisaster(GameState game[]);
 int isCovered(InsuranceType policy, DisasterType disaster);
 int compensationPercent(InsuranceType policy);
 void purchaseInsurance(GameState game[], int playerIndex, int propIndex, InsuranceType type);
 int findPropertyToInsure(GameState game[], int playerIndex);
+int findPropertyToRenew(GameState game[], int playerIndex);
 void handleInsuranceVisit(GameState game[], int playerIndex);
 void tryAutoRepair(GameState game[], int playerIndex);
 void triggerDisaster(GameState game[]);
@@ -141,6 +150,12 @@ void processInsuranceExpiry(GameState game[]);
 int applyRate(int oldValue, int ratePercent);
 void initEconomy(GameState game[]);
 void applyInflation(GameState game[]);
+void addModifier(GameState game[], ModifierType type, int group, int index,
+                 int percent, int roundsLeft);
+int modifierMultiplier(GameState game[], ModifierType type, int group, int index);
+int isModifierActive(GameState game[], ModifierType type, int group, int index);
+void decrementModifiers(GameState game[]);
+void formatLKR(int amount, char out[]);
 int currentMarketValue(GameState game[], int propIndex);
 void ageProperties(GameState game[]);
 void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex);

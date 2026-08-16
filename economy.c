@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "types.h"
 #include "functions.h"
 
@@ -7,21 +8,6 @@ void initEconomy(GameState game[])
 {
     game[0].economy.inflationRate = 0;
     game[0].economy.loanInterestRate = LOAN_INTEREST_RATE;
-
-    game[0].economy.hotelRentMultiplierPercent = 100;
-    game[0].economy.hotelRentRoundsLeft = 0;
-
-    game[0].economy.railwayRentMultiplierPercent = 100;
-    game[0].economy.railwayRentRoundsLeft = 0;
-
-    game[0].economy.utilityRentMultiplierPercent = 100;
-    game[0].economy.utilityRentRoundsLeft = 0;
-
-    game[0].economy.constructionCostMultiplierPercent = 100;
-    game[0].economy.constructionCostRoundsLeft = 0;
-
-    game[0].economy.insurancePremiumMultiplierPercent = 100;
-    game[0].economy.insurancePremiumRoundsLeft = 0;
 
     game[0].economy.constructionSuspendedRoundsLeft = 0;
 
@@ -33,6 +19,8 @@ void initEconomy(GameState game[])
     game[0].economy.antiSpeculationActive = 0;
 
     game[0].economy.currentCardIndex = 0;
+
+    game[0].economy.modifierCount = 0;
 }
 
 /* Rule-LK 14: New = Old x (1 + rate/100), never below 1. */
@@ -46,6 +34,138 @@ int applyRate(int oldValue, int ratePercent)
         newValue = 1;
 
     return newValue;
+}
+
+/* Adds a timed modifier (Rule-LK 30-35).  group/index are -1 when not
+   relevant.  Effects accumulate: two active +25% rents give
+   roughly +56%, so simultaneous effects are cumulative (Rule-LK 34). */
+void addModifier(GameState game[], ModifierType type, int group, int index,
+                 int percent, int roundsLeft)
+{
+    Economy *e = &game[0].economy;
+
+    if(e->modifierCount >= MAX_MODIFIERS)
+        return;
+
+    e->modifiers[e->modifierCount].type = type;
+    e->modifiers[e->modifierCount].group = group;
+    e->modifiers[e->modifierCount].index = index;
+    e->modifiers[e->modifierCount].percent = percent;
+    e->modifiers[e->modifierCount].roundsLeft = roundsLeft;
+
+    e->modifierCount++;
+}
+
+/* Effective percentage multiplier from every active matching modifier,
+   multiplied together (Rule-LK 34).  Returns 100 when none match. */
+int modifierMultiplier(GameState game[], ModifierType type, int group, int index)
+{
+    int mult;
+    int i;
+
+    mult = 100;
+
+    for(i = 0; i < game[0].economy.modifierCount; i++)
+    {
+        ActiveModifier *m = &game[0].economy.modifiers[i];
+
+        if(m->type != type)
+            continue;
+        if(group != -1 && m->group != group)
+            continue;
+        if(index != -1 && m->index != index)
+            continue;
+
+        mult = (mult * m->percent) / 100;
+    }
+
+    return mult;
+}
+
+/* Whether at least one matching modifier is currently active - used
+   for flag-style modifiers such as flood risk or recession. */
+int isModifierActive(GameState game[], ModifierType type, int group, int index)
+{
+    int i;
+
+    for(i = 0; i < game[0].economy.modifierCount; i++)
+    {
+        ActiveModifier *m = &game[0].economy.modifiers[i];
+
+        if(m->type != type)
+            continue;
+        if(group != -1 && m->group != group)
+            continue;
+        if(index != -1 && m->index != index)
+            continue;
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/* Ticks every active modifier down and removes the expired ones. */
+void decrementModifiers(GameState game[])
+{
+    int i;
+
+    i = 0;
+
+    while(i < game[0].economy.modifierCount)
+    {
+        game[0].economy.modifiers[i].roundsLeft--;
+
+        if(game[0].economy.modifiers[i].roundsLeft <= 0)
+        {
+            int j;
+
+            for(j = i; j < game[0].economy.modifierCount - 1; j++)
+                game[0].economy.modifiers[j] = game[0].economy.modifiers[j + 1];
+
+            game[0].economy.modifierCount--;
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
+/* Formats an amount with thousands separators, e.g. 30000 -> "30,000". */
+void formatLKR(int amount, char out[])
+{
+    char digits[32];
+    int len;
+    int i;
+    int w;
+    int neg;
+
+    neg = 0;
+
+    if(amount < 0)
+    {
+        neg = 1;
+        amount = -amount;
+    }
+
+    sprintf(digits, "%d", amount);
+    len = strlen(digits);
+
+    w = 0;
+
+    if(neg)
+        out[w++] = '-';
+
+    for(i = 0; i < len; i++)
+    {
+        if(i > 0 && (len - i) % 3 == 0)
+            out[w++] = ',';
+
+        out[w++] = digits[i];
+    }
+
+    out[w] = '\0';
 }
 
 /* Every 10 rounds, a random inflation rate is applied to every
@@ -99,22 +219,32 @@ void applyInflation(GameState game[])
    depreciation, adjusted by any active market conditions. Reused
    everywhere a "real price" is needed - buying, insurance, repairs,
    renovation, net worth - so all of them stay consistent. */
+/* Rule-LK 11-13, 24: the current market value of a property, after
+   age depreciation and every value modifier currently active
+   (Rule-LK 34 - all matching modifiers multiply together). */
 int currentMarketValue(GameState game[], int propIndex)
 {
     int price;
     int depreciation;
-    PropertyGroup group;
+    int mult;
 
     price = game[0].board[propIndex].property.purchasePrice;
     depreciation = game[0].board[propIndex].property.depreciation;
 
     price = price - (price * depreciation) / 100;
 
+    mult = modifierMultiplier(game, MOD_VALUE_GLOBAL, -1, -1);
+
     if(game[0].board[propIndex].type == PROPERTY)
-    {
-        group = game[0].board[propIndex].property.group;
-        price = (price * game[0].economy.groupValueMultiplier[group]) / 100;
-    }
+        mult = (mult * modifierMultiplier(game, MOD_GROUP_VALUE,
+                                          game[0].board[propIndex].property.group, -1)) / 100;
+
+    if(game[0].board[propIndex].type == RAILWAY)
+        mult = (mult * modifierMultiplier(game, MOD_RAIL_VALUE, -1, -1)) / 100;
+
+    mult = (mult * modifierMultiplier(game, MOD_INDEX_VALUE, -1, propIndex)) / 100;
+
+    price = (price * mult) / 100;
 
     return price;
 }

@@ -9,12 +9,7 @@ void initMarket(GameState game[])
     int i;
 
     for(i = 0; i < NO_GROUP; i++)
-    {
-        game[0].economy.groupValueMultiplier[i] = 100;
-        game[0].economy.groupRentMultiplier[i] = 100;
-        game[0].economy.groupRoundsLeft[i] = 0;
         game[0].economy.groupCooldownUntilRound[i] = 0;
-    }
 
     game[0].economy.lastBoomGroup = -1;
     game[0].economy.lastDeclineGroup = -1;
@@ -71,7 +66,8 @@ PropertyGroup pickEligibleGroup(GameState game[], int currentRound, int avoid1, 
 }
 
 /* Rule-LK 30-34: every 10 rounds, one group booms and a different
-   one declines, each for 10 rounds. */
+   one declines, each for 10 rounds.  All effects are temporary
+   modifiers (Rule-LK 34) so no base value or cost is ever changed. */
 void reviewPropertyMarket(GameState game[], int currentRound)
 {
     PropertyGroup boomGroup;
@@ -89,16 +85,21 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     printf("Market Boom : %s (values +20%%, rent +25%%) for 10 rounds.\n", boomName);
     printf("Market Decline : %s (values -15%%, rent -20%%) for 10 rounds.\n", declineName);
 
-    game[0].economy.groupValueMultiplier[boomGroup] = 120;
-    game[0].economy.groupRentMultiplier[boomGroup] = 125;
-    game[0].economy.groupRoundsLeft[boomGroup] = 10;
+    addModifier(game, MOD_GROUP_VALUE, boomGroup, -1, 120, 10);
+    addModifier(game, MOD_GROUP_RENT, boomGroup, -1, 125, 10);
 
-    game[0].economy.groupValueMultiplier[declineGroup] = 85;
-    game[0].economy.groupRentMultiplier[declineGroup] = 80;
-    game[0].economy.groupRoundsLeft[declineGroup] = 10;
+    addModifier(game, MOD_GROUP_VALUE, declineGroup, -1, 85, 10);
+    addModifier(game, MOD_GROUP_RENT, declineGroup, -1, 80, 10);
 
-    game[0].economy.constructionCostMultiplierPercent = 110;
-    game[0].economy.constructionCostRoundsLeft = 10;
+    /* Rule-LK 34: the boom group's mortgage values rise by 15% and
+       the decline group's fall by 10%; direct purchase prices rise
+       by 15% and auction starting prices fall by 25%. */
+    addModifier(game, MOD_MARKET_MORTGAGE, boomGroup, -1, 115, 10);
+    addModifier(game, MOD_PURCHASE_PRICE, -1, -1, 115, 10);
+    addModifier(game, MOD_CONSTRUCTION, -1, -1, 110, 10);
+
+    addModifier(game, MOD_MARKET_MORTGAGE, declineGroup, -1, 90, 10);
+    addModifier(game, MOD_AUCTION_PRICE, -1, -1, 75, 10);
 
     game[0].economy.groupCooldownUntilRound[boomGroup] = currentRound + 30;
     game[0].economy.groupCooldownUntilRound[declineGroup] = currentRound + 30;
@@ -121,78 +122,69 @@ void drawRegionalCard(GameState game[])
         case 0:
             printf("Southern Tourism Boom : Galle Fort, Unawatuna and "
                    "Hikkaduwa rental income +40%%.\n");
-            game[0].economy.groupRentMultiplier[YELLOW] = 140;
-            game[0].economy.groupRoundsLeft[YELLOW] = 15;
+            addModifier(game, MOD_GROUP_RENT, YELLOW, -1, 140, 15);
             break;
 
         case 1:
             printf("Port City Expansion : Pettah and Maradana values +25%%.\n");
-            game[0].economy.groupValueMultiplier[BROWN] = 125;
-            game[0].economy.groupRoundsLeft[BROWN] = 15;
+            addModifier(game, MOD_GROUP_VALUE, BROWN, -1, 125, 15);
+            addModifier(game, MOD_INDEX_VALUE, -1, 5, 125, 15);   /* Colombo Fort Station */
             break;
 
         case 2:
             printf("IT Industry Growth : Maharagama, Nugegoda and "
                    "Kottawa values +20%%.\n");
-            game[0].economy.groupValueMultiplier[PINK] = 120;
-            game[0].economy.groupRoundsLeft[PINK] = 15;
+            addModifier(game, MOD_GROUP_VALUE, PINK, -1, 120, 15);
             break;
 
         case 3:
             printf("Northern Development Programme : Jaffna Town, Nallur "
                    "and Trincomalee values +30%%.\n");
-            game[0].economy.groupValueMultiplier[GREEN] = 130;
-            game[0].economy.groupRoundsLeft[GREEN] = 15;
+            addModifier(game, MOD_GROUP_VALUE, GREEN, -1, 130, 15);
             break;
 
         case 4:
             printf("Tea Export Boom : Nuwara Eliya value +35%%.\n");
-            game[0].economy.groupValueMultiplier[DARK_BLUE] = 135;
-            game[0].economy.groupRoundsLeft[DARK_BLUE] = 15;
+            addModifier(game, MOD_INDEX_VALUE, -1, 37, 135, 15);
             break;
 
         case 5:
             printf("Airport Expansion : Negombo, Katunayake and "
                    "Ja-Ela rents +30%%.\n");
-            game[0].economy.groupRentMultiplier[ORANGE] = 130;
-            game[0].economy.groupRoundsLeft[ORANGE] = 15;
+            addModifier(game, MOD_GROUP_RENT, ORANGE, -1, 130, 15);
             break;
 
         case 6:
             printf("University City Growth : Peradeniya and "
                    "Kandy City values +20%%.\n");
-            game[0].economy.groupValueMultiplier[RED] = 120;
-            game[0].economy.groupRoundsLeft[RED] = 15;
+            addModifier(game, MOD_GROUP_VALUE, RED, -1, 120, 15);
             break;
 
         case 7:
             printf("Beach Pollution : Southern coastal rents -30%%.\n");
-            game[0].economy.groupRentMultiplier[YELLOW] = 70;
-            game[0].economy.groupRoundsLeft[YELLOW] = 15;
+            addModifier(game, MOD_GROUP_RENT, YELLOW, -1, 70, 15);
             break;
 
         case 8:
             printf("Flood Damage : Low-lying coastal properties lose 20%% value.\n");
-            game[0].economy.groupValueMultiplier[YELLOW] = 80;
-            game[0].economy.groupRoundsLeft[YELLOW] = 15;
+            addModifier(game, MOD_GROUP_VALUE, YELLOW, -1, 80, 15);
             break;
 
         case 9:
             printf("Transport Strike : Railway revenue reduced by 40%%.\n");
-            game[0].economy.railwayRentMultiplierPercent = 60;
-            game[0].economy.railwayRentRoundsLeft = 15;
+            addModifier(game, MOD_RAIL_RENT, -1, -1, 60, 15);
             break;
 
         case 10:
             printf("Electricity Tariff Increase : Utility rent +25%%.\n");
-            game[0].economy.utilityRentMultiplierPercent = 125;
-            game[0].economy.utilityRentRoundsLeft = 15;
+            addModifier(game, MOD_UTIL_RENT, -1, -1, 125, 15);
             break;
 
         case 11:
             printf("Water Shortage : Utility revenue +20%%.\n");
-            game[0].economy.utilityRentMultiplierPercent = 120;
-            game[0].economy.utilityRentRoundsLeft = 15;
+            addModifier(game, MOD_UTIL_RENT, -1, -1, 120, 15);
+            addModifier(game, MOD_INDEX_VALUE, -1, 13, 90, 15);
+            addModifier(game, MOD_INDEX_VALUE, -1, 29, 90, 15);
             break;
 
         default:
@@ -200,31 +192,12 @@ void drawRegionalCard(GameState game[])
     }
 }
 
-void decrementMarketTimers(GameState game[])
-{
-    int g;
-
-    for(g = 0; g < NO_GROUP; g++)
-    {
-        if(game[0].economy.groupRoundsLeft[g] > 0)
-        {
-            game[0].economy.groupRoundsLeft[g]--;
-
-            if(game[0].economy.groupRoundsLeft[g] == 0)
-            {
-                game[0].economy.groupValueMultiplier[g] = 100;
-                game[0].economy.groupRentMultiplier[g] = 100;
-            }
-        }
-    }
-}
-
 /* Rule-LK 36: shows the currently active market conditions. */
 void displayMarketConditions(GameState game[])
 {
-    int g;
+    int i;
     int shown;
-    char name[12];
+    char name[32];
 
     printf("\n=========================================\n");
     printf("Current Market Conditions\n");
@@ -232,19 +205,52 @@ void displayMarketConditions(GameState game[])
 
     shown = 0;
 
-    for(g = 0; g < NO_GROUP; g++)
+    for(i = 0; i < game[0].economy.modifierCount; i++)
     {
-        if(game[0].economy.groupRoundsLeft[g] > 0)
+        ActiveModifier *m = &game[0].economy.modifiers[i];
+
+        switch(m->type)
         {
-            groupName((PropertyGroup)g, name);
+            case MOD_GROUP_VALUE:
+                groupName((PropertyGroup)m->group, name);
+                printf("%s properties : values x%d%% (%d rounds remaining)\n",
+                       name, m->percent, m->roundsLeft);
+                shown = 1;
+                break;
 
-            printf("%s : Value x%d%%, Rent x%d%% (%d rounds remaining)\n",
-                   name,
-                   game[0].economy.groupValueMultiplier[g],
-                   game[0].economy.groupRentMultiplier[g],
-                   game[0].economy.groupRoundsLeft[g]);
+            case MOD_GROUP_RENT:
+                groupName((PropertyGroup)m->group, name);
+                printf("%s properties : rent x%d%% (%d rounds remaining)\n",
+                       name, m->percent, m->roundsLeft);
+                shown = 1;
+                break;
 
-            shown = 1;
+            case MOD_INDEX_VALUE:
+                printf("%s : value x%d%% (%d rounds remaining)\n",
+                       game[0].board[m->index].name, m->percent, m->roundsLeft);
+                shown = 1;
+                break;
+
+            case MOD_RAIL_VALUE:
+                printf("Railway values : x%d%% (%d rounds remaining)\n",
+                       m->percent, m->roundsLeft);
+                shown = 1;
+                break;
+
+            case MOD_RAIL_RENT:
+                printf("Railway rents : x%d%% (%d rounds remaining)\n",
+                       m->percent, m->roundsLeft);
+                shown = 1;
+                break;
+
+            case MOD_UTIL_RENT:
+                printf("Utility rents : x%d%% (%d rounds remaining)\n",
+                       m->percent, m->roundsLeft);
+                shown = 1;
+                break;
+
+            default:
+                break;
         }
     }
 

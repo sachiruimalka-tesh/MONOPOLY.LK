@@ -38,6 +38,51 @@ int compensationPercent(InsuranceType policy)
     return 0;
 }
 
+/* Picks a disaster. Every type is equally likely at base, but Heavy
+   Monsoon boosts floods and Political Unrest boosts riots (Rule-LK 34). */
+DisasterType pickDisaster(GameState game[])
+{
+    int weights[5];
+    int total;
+    int i;
+    int roll;
+    DisasterType result;
+
+    weights[FIRE] = 20;
+    weights[FLOOD] = 20;
+    weights[RIOT] = 20;
+    weights[BUILDING_COLLAPSE] = 20;
+    weights[ELECTRICAL_FAILURE] = 20;
+
+    if(isModifierActive(game, MOD_FLOOD_RISK, -1, -1))
+        weights[FLOOD] += 30;
+
+    if(isModifierActive(game, MOD_RIOT_RISK, -1, -1))
+        weights[RIOT] += 30;
+
+    total = 0;
+
+    for(i = 0; i < 5; i++)
+        total += weights[i];
+
+    roll = rand() % total;
+
+    result = FIRE;
+
+    for(i = 0; i < 5; i++)
+    {
+        if(roll < weights[i])
+        {
+            result = (DisasterType)i;
+            break;
+        }
+
+        roll -= weights[i];
+    }
+
+    return result;
+}
+
 void purchaseInsurance(GameState game[], int playerIndex, int propIndex, InsuranceType type)
 {
     int value;
@@ -55,7 +100,9 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
 
     value = propertyValue(game, propIndex);
     premium = (value * premiumPercent) / 100;
-    premium = (premium * game[0].economy.insurancePremiumMultiplierPercent) / 100;
+
+    /* Rule-LK 34: premiums respond to insurance modifiers. */
+    premium = (premium * modifierMultiplier(game, MOD_INSURANCE, -1, -1)) / 100;
 
     if(game[0].players[playerIndex].cash < premium)
         return;
@@ -72,6 +119,8 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     printf("Premium : LKR %d\n", premium);
 }
 
+/* Any owned property can be insured (Section 2.8) - no longer just
+   developed ones. */
 int findPropertyToInsure(GameState game[], int playerIndex)
 {
     int i;
@@ -84,13 +133,33 @@ int findPropertyToInsure(GameState game[], int playerIndex)
         if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(game[0].board[i].property.houses == 0 && !game[0].board[i].property.hotel)
-            continue;   /* not developed yet */
-
         if(game[0].board[i].property.insurance != NO_INSURANCE)
             continue;
 
         if(desiredInsurance(game, playerIndex, i) != NO_INSURANCE)
+            return i;
+    }
+
+    return -1;
+}
+
+/* Finds a policy close to expiring so it can be renewed. */
+int findPropertyToRenew(GameState game[], int playerIndex)
+{
+    int i;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(game[0].board[i].type != PROPERTY)
+            continue;
+
+        if(game[0].board[i].property.owner != playerIndex)
+            continue;
+
+        if(game[0].board[i].property.insurance == NO_INSURANCE)
+            continue;
+
+        if(game[0].board[i].property.insuranceRoundsLeft <= 10)
             return i;
     }
 
@@ -104,6 +173,19 @@ void handleInsuranceVisit(GameState game[], int playerIndex)
 
     printf("\n%s landed on an Insurance square.\n",
            game[0].players[playerIndex].name);
+
+    propIndex = findPropertyToRenew(game, playerIndex);
+
+    if(propIndex != -1)
+    {
+        type = game[0].board[propIndex].property.insurance;
+
+        purchaseInsurance(game, playerIndex, propIndex, type);
+
+        printf("The policy on %s was renewed for another 20 rounds.\n",
+               game[0].board[propIndex].name);
+        return;
+    }
 
     propIndex = findPropertyToInsure(game, playerIndex);
 
@@ -177,7 +259,9 @@ void triggerDisaster(GameState game[])
         return;
 
     chosen = developed[rand() % developedCount];
-    disaster = (DisasterType)(rand() % 5);
+
+    disaster = pickDisaster(game);
+
     owner = game[0].board[chosen].property.owner;
 
     printf("\n*** DISASTER ***\n");
@@ -201,6 +285,13 @@ void triggerDisaster(GameState game[])
     if(isCovered(game[0].board[chosen].property.insurance, disaster))
     {
         compensation = (cost * compensationPercent(game[0].board[chosen].property.insurance)) / 100;
+
+        /* Political Unrest inflates Business Interruption claims (Rule-LK 34). */
+        if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION &&
+           isModifierActive(game, MOD_BI_CLAIMS, -1, -1))
+        {
+            compensation = (compensation * 150) / 100;
+        }
 
         receiveMoney(game, owner, compensation);
 

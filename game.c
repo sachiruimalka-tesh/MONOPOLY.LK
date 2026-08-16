@@ -18,6 +18,7 @@ int movePlayer(GameState game[], int playerIndex, int dice)
 {
     int oldPosition;
     int passedGo;
+    char moneyBuffer[32];
 
     oldPosition = game[0].players[playerIndex].position;
     game[0].players[playerIndex].position = (oldPosition + dice) % BOARD_SIZE;
@@ -36,9 +37,11 @@ int movePlayer(GameState game[], int playerIndex, int dice)
 
         receiveMoney(game, playerIndex, GO_MONEY);
 
-        printf("%s passed GO and collected LKR %d\n",
-               game[0].players[playerIndex].name,
-               GO_MONEY);
+        printf("%s passed GO.\n", game[0].players[playerIndex].name);
+
+        formatLKR(GO_MONEY, moneyBuffer);
+
+        printf("Collected LKR %s\n", moneyBuffer);
 
         printf("Current Balance : LKR %d\n",
                game[0].players[playerIndex].cash);
@@ -474,7 +477,8 @@ void playGame(GameState game[], int turnOrder[])
         ageProperties(game);
         ageBuildings(game);
         decrementEventTimers(game);
-        decrementMarketTimers(game);
+        decrementModifiers(game);
+        enforceAntiSpeculation(game);
 
         if(round % 10 == 0)
         {

@@ -3,48 +3,6 @@
 #include "types.h"
 #include "functions.h"
 
-void changeAllPropertyValues(GameState game[], int ratePercent)
-{
-    int i;
-
-    for(i = 0; i < BOARD_SIZE; i++)
-    {
-        if(game[0].board[i].type == PROPERTY)
-        {
-            game[0].board[i].property.purchasePrice =
-                applyRate(game[0].board[i].property.purchasePrice, ratePercent);
-        }
-    }
-}
-
-void changeGroupValues(GameState game[], PropertyGroup group, int ratePercent)
-{
-    int i;
-
-    for(i = 0; i < BOARD_SIZE; i++)
-    {
-        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
-        {
-            game[0].board[i].property.purchasePrice =
-                applyRate(game[0].board[i].property.purchasePrice, ratePercent);
-        }
-    }
-}
-
-void changeAllHouseCosts(GameState game[], int ratePercent)
-{
-    int i;
-
-    for(i = 0; i < BOARD_SIZE; i++)
-    {
-        if(game[0].board[i].type == PROPERTY)
-        {
-            game[0].board[i].property.houseCost =
-                applyRate(game[0].board[i].property.houseCost, ratePercent);
-        }
-    }
-}
-
 /* Appendix A: 20 National Event Cards, drawn when a player lands on
    an EVENT square. currentCardIndex cycles 0-19 and wraps around,
    which behaves the same as "draw the top card, put it at the
@@ -59,14 +17,12 @@ void executeEvent(GameState game[], int playerIndex)
     {
         case 0:
             printf("Tourism Hype : Hotels earn double rent for 5 rounds.\n");
-            game[0].economy.hotelRentMultiplierPercent = 200;
-            game[0].economy.hotelRentRoundsLeft = 5;
+            addModifier(game, MOD_HOTEL_RENT, -1, -1, 200, 5);
             break;
 
         case 1:
             printf("Fuel Shortage : Railway rent doubles for 5 rounds.\n");
-            game[0].economy.railwayRentMultiplierPercent = 200;
-            game[0].economy.railwayRentRoundsLeft = 5;
+            addModifier(game, MOD_RAIL_RENT, -1, -1, 200, 5);
             break;
 
         case 2:
@@ -107,18 +63,18 @@ void executeEvent(GameState game[], int playerIndex)
         }
 
         case 4:
-            printf("Stock Market Rise : All property values increase by 10%%.\n");
-            changeAllPropertyValues(game, 10);
+            printf("Stock Market Rise : All property values increase by 10%% for 15 rounds.\n");
+            addModifier(game, MOD_VALUE_GLOBAL, -1, -1, 110, 15);
             break;
 
         case 5:
-            printf("Economic Downturn : Property values decrease by 15%%.\n");
-            changeAllPropertyValues(game, -15);
+            printf("Economic Downturn : Property values decrease by 15%% for 15 rounds.\n");
+            addModifier(game, MOD_VALUE_GLOBAL, -1, -1, 85, 15);
             break;
 
         case 6:
-            printf("Housing Subsidy : House construction cost reduced by 30%%.\n");
-            changeAllHouseCosts(game, -30);
+            printf("Housing Subsidy : House construction cost reduced by 30%% for 15 rounds.\n");
+            addModifier(game, MOD_CONSTRUCTION, -1, -1, 70, 15);
             break;
 
         case 7:
@@ -132,6 +88,8 @@ void executeEvent(GameState game[], int playerIndex)
 
         case 8:
             game[0].economy.loanInterestRate += 2;
+            if(game[0].economy.loanInterestRate > 25)
+                game[0].economy.loanInterestRate = 25;
 
             printf("Interest Rate Increase : Loan interest increased by 2%%. Now %d%%.\n",
                    game[0].economy.loanInterestRate);
@@ -151,36 +109,22 @@ void executeEvent(GameState game[], int playerIndex)
 
         case 10:
             printf("Power Failure : Utility income halved for 3 rounds.\n");
-            game[0].economy.utilityRentMultiplierPercent = 50;
-            game[0].economy.utilityRentRoundsLeft = 3;
+            addModifier(game, MOD_UTIL_RENT, -1, -1, 50, 3);
             break;
 
         case 11:
-            printf("Foreign Funding : Commercial property values increase by 15%%.\n");
-            changeGroupValues(game, ORANGE, 15);
+            printf("Foreign Funding : Commercial property values increase by 15%% for 15 rounds.\n");
+            addModifier(game, MOD_GROUP_VALUE, ORANGE, -1, 115, 15);
             break;
 
         case 12:
-        {
-            int i;
-
-            printf("Port Expansion : Railway station values increase by 20%%.\n");
-
-            for(i = 0; i < BOARD_SIZE; i++)
-            {
-                if(game[0].board[i].type == RAILWAY)
-                {
-                    game[0].board[i].property.purchasePrice =
-                        applyRate(game[0].board[i].property.purchasePrice, 20);
-                }
-            }
+            printf("Port Expansion : Railway station values increase by 20%% for 15 rounds.\n");
+            addModifier(game, MOD_RAIL_VALUE, -1, -1, 120, 15);
             break;
-        }
 
         case 13:
             printf("Festival Season : Hotels receive 50%% additional rent for 5 rounds.\n");
-            game[0].economy.hotelRentMultiplierPercent = 150;
-            game[0].economy.hotelRentRoundsLeft = 5;
+            addModifier(game, MOD_HOTEL_RENT, -1, -1, 150, 5);
             break;
 
         case 14:
@@ -190,39 +134,27 @@ void executeEvent(GameState game[], int playerIndex)
 
         case 15:
             printf("Insurance Discount : Premiums reduced by 20%% for 10 rounds.\n");
-            game[0].economy.insurancePremiumMultiplierPercent = 80;
-            game[0].economy.insurancePremiumRoundsLeft = 10;
+            addModifier(game, MOD_INSURANCE, -1, -1, 80, 10);
             break;
 
         case 16:
         {
             PropertyGroup group;
+            char groupBuffer[32];
 
             group = (PropertyGroup)(rand() % NO_GROUP);
+            groupName(group, groupBuffer);
 
-            printf("Property Revaluation : one property group appreciates by 15%%.\n");
-            changeGroupValues(game, group, 15);
+            printf("Property Revaluation : %s properties appreciate by 15%% for 15 rounds.\n",
+                   groupBuffer);
+            addModifier(game, MOD_GROUP_VALUE, group, -1, 115, 15);
             break;
         }
 
         case 17:
-        {
-            int i;
-
-            printf("Currency Depreciation : Construction costs increase by 10%%.\n");
-
-            for(i = 0; i < BOARD_SIZE; i++)
-            {
-                if(game[0].board[i].type == PROPERTY)
-                {
-                    game[0].board[i].property.houseCost =
-                        applyRate(game[0].board[i].property.houseCost, 10);
-                    game[0].board[i].property.hotelCost =
-                        applyRate(game[0].board[i].property.hotelCost, 10);
-                }
-            }
+            printf("Currency Depreciation : Construction costs increase by 10%% for 15 rounds.\n");
+            addModifier(game, MOD_CONSTRUCTION, -1, -1, 110, 15);
             break;
-        }
 
         case 18:
         {
@@ -265,9 +197,8 @@ void triggerEconomicEvent(GameState game[])
             printf("Hotels receive double rent for 15 rounds.\n");
             printf("Southern Province properties increase in value by 15%%.\n");
 
-            game[0].economy.hotelRentMultiplierPercent = 200;
-            game[0].economy.hotelRentRoundsLeft = 15;
-            changeGroupValues(game, YELLOW, 15);
+            addModifier(game, MOD_HOTEL_RENT, -1, -1, 200, 15);
+            addModifier(game, MOD_GROUP_VALUE, YELLOW, -1, 115, 15);
             break;
 
         case 1:
@@ -275,10 +206,8 @@ void triggerEconomicEvent(GameState game[])
             printf("Railway rent doubles for 15 rounds.\n");
             printf("Property development costs increase 20%% for 15 rounds.\n");
 
-            game[0].economy.railwayRentMultiplierPercent = 200;
-            game[0].economy.railwayRentRoundsLeft = 15;
-            game[0].economy.constructionCostMultiplierPercent = 120;
-            game[0].economy.constructionCostRoundsLeft = 15;
+            addModifier(game, MOD_RAIL_RENT, -1, -1, 200, 15);
+            addModifier(game, MOD_CONSTRUCTION, -1, -1, 120, 15);
             break;
 
         case 2:
@@ -286,62 +215,57 @@ void triggerEconomicEvent(GameState game[])
             printf("Insurance premiums increase for 15 rounds.\n");
             printf("Coastal properties lose 10%% value.\n");
 
-            game[0].economy.insurancePremiumMultiplierPercent = 115;
-            game[0].economy.insurancePremiumRoundsLeft = 15;
-            changeGroupValues(game, YELLOW, -10);
+            addModifier(game, MOD_INSURANCE, -1, -1, 115, 15);
+            addModifier(game, MOD_FLOOD_RISK, -1, -1, 100, 15);
+            addModifier(game, MOD_GROUP_VALUE, YELLOW, -1, 90, 15);
             break;
 
         case 3:
-        {
-            int i;
-
             printf("Economic Recession\n");
             printf("Property values decrease 15%%. Rent decreases 10%%.\n");
             printf("Loan interest increases by 15%%.\n");
 
-            changeAllPropertyValues(game, -15);
-
-            for(i = 0; i < BOARD_SIZE; i++)
-            {
-                if(game[0].board[i].type == PROPERTY)
-                {
-                    game[0].board[i].property.baseRent =
-                        applyRate(game[0].board[i].property.baseRent, -10);
-                }
-            }
+            addModifier(game, MOD_VALUE_GLOBAL, -1, -1, 85, 15);
+            addModifier(game, MOD_RENT_GLOBAL, -1, -1, 90, 15);
+            addModifier(game, MOD_RECESSION, -1, -1, 100, 15);
 
             game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, 15);
+            if(game[0].economy.loanInterestRate > 25)
+                game[0].economy.loanInterestRate = 25;
             break;
-        }
 
         case 4:
             printf("Stock Market Boom\n");
             printf("Property values increase 10%%. Loan interest decreases 10%%.\n");
 
-            changeAllPropertyValues(game, 10);
+            addModifier(game, MOD_VALUE_GLOBAL, -1, -1, 110, 15);
+
             game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, -10);
+            if(game[0].economy.loanInterestRate < 1)
+                game[0].economy.loanInterestRate = 1;
             break;
 
         case 5:
             printf("Government Housing Programme\n");
             printf("House construction costs reduce 25%%.\n");
 
-            changeAllHouseCosts(game, -25);
+            addModifier(game, MOD_CONSTRUCTION, -1, -1, 75, 15);
             break;
 
         case 6:
             printf("Foreign Investment\n");
             printf("Commercial properties increase 20%%.\n");
 
-            changeGroupValues(game, ORANGE, 20);
+            addModifier(game, MOD_GROUP_VALUE, ORANGE, -1, 120, 15);
             break;
 
         case 7:
             printf("Political Unrest\n");
             printf("Hotel rent drops by 50%% for 15 rounds.\n");
 
-            game[0].economy.hotelRentMultiplierPercent = 50;
-            game[0].economy.hotelRentRoundsLeft = 15;
+            addModifier(game, MOD_HOTEL_RENT, -1, -1, 50, 15);
+            addModifier(game, MOD_RIOT_RISK, -1, -1, 100, 15);
+            addModifier(game, MOD_BI_CLAIMS, -1, -1, 100, 15);
             break;
 
         default:
@@ -381,9 +305,9 @@ void triggerGovernmentRegulation(GameState game[])
 
         case 2:
             printf("Housing Subsidy\n");
-            printf("House construction costs reduced by 30%%.\n");
+            printf("House construction costs reduced by 30%% for 20 rounds.\n");
 
-            changeAllHouseCosts(game, -30);
+            addModifier(game, MOD_CONSTRUCTION, -1, -1, 70, 20);
             break;
 
         case 3:
@@ -410,24 +334,21 @@ void triggerGovernmentRegulation(GameState game[])
             printf("Railway Modernization\n");
             printf("Railway rents increase 25%% for 20 rounds.\n");
 
-            game[0].economy.railwayRentMultiplierPercent = 125;
-            game[0].economy.railwayRentRoundsLeft = 20;
+            addModifier(game, MOD_RAIL_RENT, -1, -1, 125, 20);
             break;
 
         case 5:
             printf("Electricity Tariff Revision\n");
             printf("Utility rents increase 20%% for 20 rounds.\n");
 
-            game[0].economy.utilityRentMultiplierPercent = 120;
-            game[0].economy.utilityRentRoundsLeft = 20;
+            addModifier(game, MOD_UTIL_RENT, -1, -1, 120, 20);
             break;
 
         case 6:
             printf("Insurance Regulation\n");
             printf("Insurance premiums decrease 15%% for 20 rounds. Coverage unchanged.\n");
 
-            game[0].economy.insurancePremiumMultiplierPercent = 85;
-            game[0].economy.insurancePremiumRoundsLeft = 20;
+            addModifier(game, MOD_INSURANCE, -1, -1, 85, 20);
             break;
 
         case 7:
@@ -442,43 +363,10 @@ void triggerGovernmentRegulation(GameState game[])
     }
 }
 
+/* Decrements the non-modifier event timers - the modifier list itself
+   is ticked down separately by decrementModifiers(). */
 void decrementEventTimers(GameState game[])
 {
-    if(game[0].economy.hotelRentRoundsLeft > 0)
-    {
-        game[0].economy.hotelRentRoundsLeft--;
-        if(game[0].economy.hotelRentRoundsLeft == 0)
-            game[0].economy.hotelRentMultiplierPercent = 100;
-    }
-
-    if(game[0].economy.railwayRentRoundsLeft > 0)
-    {
-        game[0].economy.railwayRentRoundsLeft--;
-        if(game[0].economy.railwayRentRoundsLeft == 0)
-            game[0].economy.railwayRentMultiplierPercent = 100;
-    }
-
-    if(game[0].economy.utilityRentRoundsLeft > 0)
-    {
-        game[0].economy.utilityRentRoundsLeft--;
-        if(game[0].economy.utilityRentRoundsLeft == 0)
-            game[0].economy.utilityRentMultiplierPercent = 100;
-    }
-
-    if(game[0].economy.constructionCostRoundsLeft > 0)
-    {
-        game[0].economy.constructionCostRoundsLeft--;
-        if(game[0].economy.constructionCostRoundsLeft == 0)
-            game[0].economy.constructionCostMultiplierPercent = 100;
-    }
-
-    if(game[0].economy.insurancePremiumRoundsLeft > 0)
-    {
-        game[0].economy.insurancePremiumRoundsLeft--;
-        if(game[0].economy.insurancePremiumRoundsLeft == 0)
-            game[0].economy.insurancePremiumMultiplierPercent = 100;
-    }
-
     if(game[0].economy.constructionSuspendedRoundsLeft > 0)
         game[0].economy.constructionSuspendedRoundsLeft--;
 

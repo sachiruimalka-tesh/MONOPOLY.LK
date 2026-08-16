@@ -39,6 +39,7 @@ void initializePlayers(GameState game[])
         game[0].players[i].loan.remainingRounds = 0;
 
         game[0].players[i].sufferedLoss = 0;
+        game[0].players[i].antiSpecRounds = 0;
     }
 }
 
@@ -80,11 +81,18 @@ int shouldBuyProperty(GameState game[], int playerIndex)
     switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
-            /* buy unless it leaves less than 1000 spare */
+            /* buys to complete a monopoly group even if it dips below
+               the usual 1000 reserve (Section 3.1) */
+            if(wouldCompleteMonopoly(game, playerIndex, position))
+                return 1;
             return (game[0].players[playerIndex].cash - price >= 1000);
 
         case CONSERVATIVE_BANKER:
-            /* keep at least half of current cash */
+            /* avoids property purchases entirely during a recession,
+               but will still buy rail/utility income (Section 3.2) */
+            if(game[0].board[position].type == PROPERTY &&
+               isModifierActive(game, MOD_RECESSION, -1, -1))
+                return 0;
             return (game[0].players[playerIndex].cash - price >=
                     game[0].players[playerIndex].cash / 2);
 
@@ -92,6 +100,11 @@ int shouldBuyProperty(GameState game[], int playerIndex)
             return (game[0].players[playerIndex].cash >= price);
 
         case OPPORTUNISTIC_TRADER:
+            /* never buys into a group that is currently declining */
+            if(game[0].board[position].type == PROPERTY &&
+               modifierMultiplier(game, MOD_GROUP_VALUE,
+                                  game[0].board[position].property.group, -1) < 100)
+                return 0;
             /* only buys cheaper properties */
             return (price <= game[0].players[playerIndex].cash * 40 / 100);
 
@@ -122,6 +135,14 @@ int shouldConstruct(GameState game[], int playerIndex, int cost)
             return (cash >= cost);
 
         case OPPORTUNISTIC_TRADER:
+            /* builds eagerly while a construction subsidy is active */
+            if(modifierMultiplier(game, MOD_CONSTRUCTION, -1, -1) < 100)
+                return (cash - cost >= cash * 30 / 100);
+
+            /* delays building while inflation pushes costs up */
+            if(game[0].economy.inflationRate > 0)
+                return (cash - cost >= cash * 60 / 100);
+
             return (cash - cost >= cash * 40 / 100);
 
         default:
@@ -181,6 +202,72 @@ int wantsToRepayLoan(GameState game[], int playerIndex)
         default:
             return 0;
     }
+}
+
+/* Rule-LK 5: whether a player wants to borrow more against new
+   collateral during a Bank visit. */
+int wantsIncreaseLoan(GameState game[], int playerIndex)
+{
+    int cash;
+
+    cash = game[0].players[playerIndex].cash;
+
+    switch(game[0].players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+            return 1;
+
+        case CONSERVATIVE_BANKER:
+            return (cash < 3000);
+
+        case RISK_TAKER:
+            return 1;
+
+        case OPPORTUNISTIC_TRADER:
+            return (cash < 5000);
+
+        default:
+            return 0;
+    }
+}
+
+/* Rule-LK 5: whether a player wants to extend the loan term. */
+int wantsExtendLoan(GameState game[], int playerIndex)
+{
+    int remainingRounds;
+    int cash;
+    int loanAmount;
+
+    remainingRounds = game[0].players[playerIndex].loan.remainingRounds;
+    cash = game[0].players[playerIndex].cash;
+    loanAmount = game[0].players[playerIndex].loan.amount;
+
+    switch(game[0].players[playerIndex].strategy)
+    {
+        case AGGRESSIVE_INVESTOR:
+            /* prefers to borrow more rather than extend */
+            return 0;
+
+        case CONSERVATIVE_BANKER:
+            return (remainingRounds <= 5 && cash < loanAmount);
+
+        case RISK_TAKER:
+            return (remainingRounds <= 10);
+
+        case OPPORTUNISTIC_TRADER:
+            return (remainingRounds <= 5);
+
+        default:
+            return 0;
+    }
+}
+
+/* Rule-LK 5: whether a player wants to refinance at the current rate
+   (only makes sense when the current economy rate is lower). */
+int wantsRefinance(GameState game[], int playerIndex)
+{
+    return (game[0].economy.loanInterestRate <
+            game[0].players[playerIndex].loan.interestRate);
 }
 
 /* Which insurance policy (if any) a player wants for a property. */

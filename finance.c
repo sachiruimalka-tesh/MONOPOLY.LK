@@ -4,12 +4,26 @@
 
 void receiveMoney(GameState game[], int playerIndex, int amount)
 {
+    /* bankrupt players take no further part in the game (Section 1.3) */
+    if(game[0].players[playerIndex].bankrupt)
+        return;
+
     game[0].players[playerIndex].cash += amount;
 }
 
 void payMoney(GameState game[], int playerIndex, int amount)
 {
     game[0].players[playerIndex].cash -= amount;
+
+    /* Section 3.4: a Risk Taker facing bankruptcy first sells their
+       cheapest undeveloped property to the Bank to raise cash. */
+    while(game[0].players[playerIndex].cash < 0 &&
+          !game[0].players[playerIndex].bankrupt &&
+          game[0].players[playerIndex].strategy == RISK_TAKER &&
+          countUndevelopedProperties(game, playerIndex) > 0)
+    {
+        sellLowValueProperty(game, playerIndex);
+    }
 
     if(game[0].players[playerIndex].cash < 0 && !game[0].players[playerIndex].bankrupt)
     {
@@ -20,6 +34,10 @@ void payMoney(GameState game[], int playerIndex, int amount)
                game[0].players[playerIndex].name);
 
         liquidateBankruptAssets(game, playerIndex);
+
+        /* cash never stays negative - assets were liquidated, so any
+           remaining debt is written off (Section 1.3) */
+        game[0].players[playerIndex].cash = 0;
     }
 }
 
@@ -121,6 +139,8 @@ int findMortgagedProperty(GameState game[], int playerIndex)
 void mortgageProperty(GameState game[], int playerIndex)
 {
     int propIndex;
+    int payout;
+    PropertyGroup group;
 
     if(!shouldMortgage(game, playerIndex))
         return;
@@ -130,14 +150,25 @@ void mortgageProperty(GameState game[], int playerIndex)
     if(propIndex == -1)
         return;
 
+    /* Rule-LK 34: a booming group's mortgage values rise by 15%, a
+       declining group's fall by 10%. Railways and utilities are
+       unaffected. */
+    group = -1;
+
+    if(game[0].board[propIndex].type == PROPERTY)
+        group = game[0].board[propIndex].property.group;
+
+    payout = (game[0].board[propIndex].property.mortgageValue *
+              modifierMultiplier(game, MOD_MARKET_MORTGAGE, group, -1)) / 100;
+
     game[0].board[propIndex].property.mortgaged = 1;
 
-    receiveMoney(game, playerIndex, game[0].board[propIndex].property.mortgageValue);
+    receiveMoney(game, playerIndex, payout);
 
     printf("\n%s mortgaged %s for LKR %d.\n",
            game[0].players[playerIndex].name,
            game[0].board[propIndex].name,
-           game[0].board[propIndex].property.mortgageValue);
+           payout);
 }
 
 void redeemMortgage(GameState game[], int playerIndex)
@@ -211,10 +242,12 @@ int calculateRent(GameState game[], int position)
             rent = baseRent * 7;
     }
 
-    rent = (rent * game[0].economy.groupRentMultiplier[group]) / 100;
+    /* Rule-LK 34: all matching modifiers multiply together. */
+    rent = (rent * modifierMultiplier(game, MOD_GROUP_RENT, group, -1)) / 100;
+    rent = (rent * modifierMultiplier(game, MOD_RENT_GLOBAL, -1, -1)) / 100;
 
     if(hotel)
-        rent = (rent * game[0].economy.hotelRentMultiplierPercent) / 100;
+        rent = (rent * modifierMultiplier(game, MOD_HOTEL_RENT, -1, -1)) / 100;
 
     if(houses > 0 || hotel)
     {
@@ -254,7 +287,10 @@ int calculateRailwayRent(GameState game[], int playerIndex)
     else
         baseRent = 0;
 
-    return (baseRent * game[0].economy.railwayRentMultiplierPercent) / 100;
+    baseRent = (baseRent * modifierMultiplier(game, MOD_RAIL_RENT, -1, -1)) / 100;
+    baseRent = (baseRent * modifierMultiplier(game, MOD_RENT_GLOBAL, -1, -1)) / 100;
+
+    return baseRent;
 }
 
 /* Rent for a utility, based on the dice roll just made (Table 8). */
@@ -262,6 +298,7 @@ int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
 {
     int i;
     int count;
+    int rent;
 
     count = 0;
 
@@ -275,12 +312,16 @@ int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
     }
 
     if(count == 2)
-        return (10 * diceValue * game[0].economy.utilityRentMultiplierPercent) / 100;
+        rent = 10 * diceValue;
+    else if(count == 1)
+        rent = 4 * diceValue;
+    else
+        rent = 0;
 
-    if(count == 1)
-        return (4 * diceValue * game[0].economy.utilityRentMultiplierPercent) / 100;
+    rent = (rent * modifierMultiplier(game, MOD_UTIL_RENT, -1, -1)) / 100;
+    rent = (rent * modifierMultiplier(game, MOD_RENT_GLOBAL, -1, -1)) / 100;
 
-    return 0;
+    return rent;
 }
 
 int groupSize(GameState game[], PropertyGroup group)
@@ -362,8 +403,10 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
     {
         int hotelCost;
 
+        /* Rule-LK 13: base hotel cost is permanent; temporary events
+           only add modifiers on top (Rule-LK 34). */
         hotelCost = (game[0].board[targetIndex].property.hotelCost *
-                     game[0].economy.constructionCostMultiplierPercent) / 100;
+                     modifierMultiplier(game, MOD_CONSTRUCTION, -1, -1)) / 100;
 
         if(!shouldConstruct(game, playerIndex, hotelCost))
             return 0;
@@ -389,7 +432,7 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
         int houseCost;
 
         houseCost = (game[0].board[targetIndex].property.houseCost *
-                     game[0].economy.constructionCostMultiplierPercent) / 100;
+                     modifierMultiplier(game, MOD_CONSTRUCTION, -1, -1)) / 100;
 
         if(!shouldConstruct(game, playerIndex, houseCost))
             return 0;
@@ -454,10 +497,9 @@ int calculatePropertyValue(GameState game[], int playerIndex)
         if(game[0].board[i].property.owner != playerIndex)
             continue;
 
-        if(game[0].board[i].type == PROPERTY)
-            total += currentMarketValue(game, i);
-        else if(game[0].board[i].type == RAILWAY || game[0].board[i].type == UTILITY)
-            total += game[0].board[i].property.purchasePrice;
+        /* railways and utilities also use currentMarketValue so their
+           value modifiers (rail/port/water effects) apply too */
+        total += currentMarketValue(game, i);
     }
 
     return total;
@@ -538,6 +580,183 @@ int countUndevelopedProperties(GameState game[], int playerIndex)
     return count;
 }
 
+/* True if buying the property at pos would complete the whole colour
+   group for the player (Section 3.1). */
+int wouldCompleteMonopoly(GameState game[], int playerIndex, int pos)
+{
+    int i;
+    PropertyGroup group;
+
+    if(game[0].board[pos].type != PROPERTY)
+        return 0;
+
+    if(game[0].board[pos].property.owner != -1)
+        return 0;
+
+    group = game[0].board[pos].property.group;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
+        {
+            if(i != pos && game[0].board[i].property.owner != playerIndex)
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
+/* Sells the player's lowest-value undeveloped property back to the
+   Bank at market value (Section 3.4 bankruptcy tactic). */
+void sellLowValueProperty(GameState game[], int playerIndex)
+{
+    int i;
+    int best;
+    int bestValue;
+    int value;
+
+    best = -1;
+    bestValue = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(game[0].board[i].type != PROPERTY)
+            continue;
+
+        if(game[0].board[i].property.owner != playerIndex)
+            continue;
+
+        if(game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel)
+            continue;
+
+        value = currentMarketValue(game, i);
+
+        if(best == -1 || value < bestValue)
+        {
+            best = i;
+            bestValue = value;
+        }
+    }
+
+    if(best == -1)
+        return;
+
+    receiveMoney(game, playerIndex, bestValue);
+
+    game[0].board[best].property.owner = -1;
+    game[0].board[best].property.mortgaged = 0;
+    game[0].board[best].property.loanLocked = 0;
+    game[0].board[best].property.insurance = NO_INSURANCE;
+
+    game[0].players[playerIndex].propertiesOwned--;
+
+    printf("\n%s sold %s to the Bank for LKR %d.\n",
+           game[0].players[playerIndex].name,
+           game[0].board[best].name,
+           bestValue);
+}
+
+/* Releases the player's lowest-value undeveloped property and puts
+   it up for auction (Anti-Speculation Act enforcement). */
+void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex)
+{
+    int i;
+    int best;
+    int bestValue;
+    int value;
+
+    best = -1;
+    bestValue = 0;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(game[0].board[i].type != PROPERTY)
+            continue;
+
+        if(game[0].board[i].property.owner != playerIndex)
+            continue;
+
+        if(game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel)
+            continue;
+
+        value = currentMarketValue(game, i);
+
+        if(best == -1 || value < bestValue)
+        {
+            best = i;
+            bestValue = value;
+        }
+    }
+
+    if(best == -1)
+        return;
+
+    printf("\nAnti-Speculation Act : %s must sell %s.\n",
+           game[0].players[playerIndex].name,
+           game[0].board[best].name);
+
+    game[0].board[best].property.owner = -1;
+    game[0].board[best].property.mortgaged = 0;
+    game[0].board[best].property.loanLocked = 0;
+    game[0].board[best].property.insurance = NO_INSURANCE;
+
+    game[0].players[playerIndex].propertiesOwned--;
+
+    runAuction(game, best);
+}
+
+/* Rule-LK 8 (Anti-Speculation Act): once active, a player may keep
+   at most three undeveloped properties. After 5 consecutive rounds
+   above the limit the excess is force-auctioned. */
+void enforceAntiSpeculation(GameState game[])
+{
+    int i;
+    int undeveloped;
+    int excess;
+
+    if(!game[0].economy.antiSpeculationActive)
+    {
+        for(i = 0; i < MAX_PLAYERS; i++)
+            game[0].players[i].antiSpecRounds = 0;
+
+        return;
+    }
+
+    for(i = 0; i < MAX_PLAYERS; i++)
+    {
+        if(game[0].players[i].bankrupt)
+        {
+            game[0].players[i].antiSpecRounds = 0;
+            continue;
+        }
+
+        undeveloped = countUndevelopedProperties(game, i);
+
+        if(undeveloped > 3)
+        {
+            game[0].players[i].antiSpecRounds++;
+
+            if(game[0].players[i].antiSpecRounds >= 5)
+            {
+                excess = countUndevelopedProperties(game, i) - 3;
+
+                while(excess > 0)
+                {
+                    sellUndevelopedPropertyToAuction(game, i);
+                    excess = countUndevelopedProperties(game, i) - 3;
+                }
+
+                game[0].players[i].antiSpecRounds = 0;
+            }
+        }
+        else
+        {
+            game[0].players[i].antiSpecRounds = 0;
+        }
+    }
+}
+
 void buyProperty(GameState game[], int playerIndex)
 {
     int pos;
@@ -559,7 +778,11 @@ void buyProperty(GameState game[], int playerIndex)
     price = game[0].board[pos].property.purchasePrice;
 
     if(game[0].board[pos].type == PROPERTY)
-        price = currentMarketValue(game, pos);
+    {
+        /* Rule-LK 34: market booms raise direct purchase prices. */
+        price = (currentMarketValue(game, pos) *
+                 modifierMultiplier(game, MOD_PURCHASE_PRICE, -1, -1)) / 100;
+    }
 
     wantsToBuy = shouldBuyProperty(game, playerIndex);
 
