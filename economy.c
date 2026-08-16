@@ -268,8 +268,6 @@ int currentMarketValue(GameState game[], int propIndex)
 }
 
 /* Rule-LK 15, 16: properties get older every round, and lose value
-   past age 50. */
-/* Rule-LK 15, 16: properties get older every round, and lose value
    past age 50. Prints the required "Property Depreciation" message
    (Section 5) whenever a property's depreciation actually changes. */
 void ageProperties(GameState game[])
@@ -286,15 +284,15 @@ void ageProperties(GameState game[])
 
         game[0].board[i].property.age++;
 
-        if(game[0].board[i].property.age > 50)
+        if(game[0].board[i].property.age > PROPERTY_AGE_LIMIT)
         {
             oldDepreciation = game[0].board[i].property.depreciation;
 
-            roundsOver50 = game[0].board[i].property.age - 50;
-            newDepreciation = roundsOver50 / 5;
+            roundsOver50 = game[0].board[i].property.age - PROPERTY_AGE_LIMIT;
+            newDepreciation = roundsOver50 / DEPRECIATION_STEP;
 
-            if(newDepreciation > 30)
-                newDepreciation = 30;
+            if(newDepreciation > MAX_DEPRECIATION)
+                newDepreciation = MAX_DEPRECIATION;
 
             game[0].board[i].property.depreciation = newDepreciation;
 
@@ -323,7 +321,7 @@ void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex
         return;
     }
 
-    cost = (currentMarketValue(game, propIndex) * 10) / 100;
+    cost = (currentMarketValue(game, propIndex) * RENOVATION_COST_PERCENT) / 100;
 
     if(game[0].players[playerIndex].cash < cost)
         return;
@@ -334,7 +332,7 @@ void tryRenovateAgeDepreciation(GameState game[], int playerIndex, int propIndex
     game[0].board[propIndex].property.depreciation = 0;
 
     game[0].board[propIndex].property.baseRent =
-        applyRate(game[0].board[propIndex].property.baseRent, 5);
+        applyRate(game[0].board[propIndex].property.baseRent, RENOVATION_RENT_BOOST);
 
     printf("\n%s renovated %s.\n",
            game[0].players[playerIndex].name, game[0].board[propIndex].name);
@@ -384,7 +382,7 @@ void ageBuildings(GameState game[])
 
         game[0].board[i].property.roundsSinceMaintenance++;
 
-        if(game[0].board[i].property.roundsSinceMaintenance > 20 &&
+        if(game[0].board[i].property.roundsSinceMaintenance > NEGLECT_ROUNDS &&
            !game[0].board[i].property.structurallyDamaged)
         {
             game[0].board[i].property.structurallyDamaged = 1;
@@ -396,13 +394,13 @@ void ageBuildings(GameState game[])
 
             game[0].board[i].property.purchasePrice =
                 game[0].board[i].property.purchasePrice -
-                (game[0].board[i].property.purchasePrice * 15) / 100;
+                (game[0].board[i].property.purchasePrice * STRUCTURAL_VALUE_LOSS) / 100;
 
             game[0].board[i].property.baseRent =
                 game[0].board[i].property.baseRent -
-                (game[0].board[i].property.baseRent * 25) / 100;
+                (game[0].board[i].property.baseRent * STRUCTURAL_RENT_LOSS) / 100;
 
-            game[0].board[i].property.maintenanceCostMultiplierPercent = 150;
+            game[0].board[i].property.maintenanceCostMultiplierPercent = DAMAGE_REPAIR_MULTIPLIER;
             game[0].board[i].property.condition = 0;
 
             printf("\n%s has suffered structural damage from neglect!\n",

@@ -103,8 +103,8 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     addSourcedModifier(game, MOD_MARKET_MORTGAGE, declineGroup, -1, 90, 10, SRC_DECLINE);
     addSourcedModifier(game, MOD_AUCTION_PRICE, declineGroup, -1, 75, 10, SRC_DECLINE);
 
-    game[0].economy.groupCooldownUntilRound[boomGroup] = currentRound + 30;
-    game[0].economy.groupCooldownUntilRound[declineGroup] = currentRound + 30;
+    game[0].economy.groupCooldownUntilRound[boomGroup] = currentRound + MARKET_COOLDOWN_ROUNDS;
+    game[0].economy.groupCooldownUntilRound[declineGroup] = currentRound + MARKET_COOLDOWN_ROUNDS;
 
     game[0].economy.lastBoomGroup = boomGroup;
     game[0].economy.lastDeclineGroup = declineGroup;
@@ -115,7 +115,7 @@ void drawRegionalCard(GameState game[])
 {
     int choice;
 
-    choice = rand() % 12;
+    choice = rand() % REGIONAL_CARD_COUNT;
 
     printf("\n=== Regional Development Card ===\n");
 
@@ -194,6 +194,172 @@ void drawRegionalCard(GameState game[])
     }
 }
 
+/* Prints a section title followed by a separator line. */
+void printSectionHeader(char title[])
+{
+    printf("%s\n", title);
+    printf("-------------------------\n");
+}
+
+/* Prints a Market Boom or Market Decline block. */
+void printBoomDecline(char title[], char groupNameBuffer[], int percent, int roundsLeft)
+{
+    printSectionHeader(title);
+    printf("%s (%+d%%)\n", groupNameBuffer, percent - 100);
+    printf("Rounds Remaining : %d\n", roundsLeft);
+}
+
+/* Writes one Regional Development card line into out. Returns 1 if
+   the modifier has a line to show, 0 otherwise. */
+int describeRegionalCondition(GameState game[], ActiveModifier mod, char out[])
+{
+    char name[48];
+
+    if(mod.type == MOD_GROUP_VALUE || mod.type == MOD_GROUP_RENT)
+    {
+        if(mod.group >= 0 && mod.group < NO_GROUP)
+            groupName((PropertyGroup)mod.group, name);
+        else
+            strcpy(name, "Unknown");
+
+        if(mod.type == MOD_GROUP_VALUE)
+            sprintf(out, "%s (%+d%%)", name, mod.percent - 100);
+        else
+            sprintf(out, "%s rents (%+d%%)", name, mod.percent - 100);
+    }
+    else if(mod.type == MOD_INDEX_VALUE)
+    {
+        sprintf(out, "%s (%+d%%)",
+                game[0].board[mod.index].name, mod.percent - 100);
+    }
+    else if(mod.type == MOD_RAIL_RENT)
+    {
+        sprintf(out, "Railway rents (%+d%%)", mod.percent - 100);
+    }
+    else if(mod.type == MOD_UTIL_RENT)
+    {
+        sprintf(out, "Utility rents (%+d%%)", mod.percent - 100);
+    }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+/* Prints the "Regional Development" section. Returns 1 if at least
+   one card effect was shown. */
+int printRegionalSection(GameState game[])
+{
+    int i;
+    int shown;
+
+    shown = 0;
+
+    for(i = 0; i < game[0].economy.modifierCount; i++)
+    {
+        ActiveModifier mod;
+        char line[100];
+
+        mod = game[0].economy.modifiers[i];
+
+        if(mod.source != SRC_REGIONAL)
+            continue;
+
+        if(!describeRegionalCondition(game, mod, line))
+            continue;
+
+        if(!shown)
+        {
+            printSectionHeader("Regional Development");
+            shown = 1;
+        }
+
+        printf("%s\n", line);
+        printf("Rounds Remaining : %d\n", mod.roundsLeft);
+    }
+
+    return shown;
+}
+
+/* Writes one "Other Active Conditions" line into out. Returns 1 if
+   the modifier has a line to show, 0 otherwise. */
+int describeOtherCondition(GameState game[], ActiveModifier mod, char out[])
+{
+    char name[32];
+
+    if(mod.type == MOD_GROUP_VALUE || mod.type == MOD_GROUP_RENT)
+    {
+        groupName((PropertyGroup)mod.group, name);
+
+        if(mod.type == MOD_GROUP_VALUE)
+            sprintf(out, "%s : values x%d%% (%d rounds remaining)",
+                    name, mod.percent, mod.roundsLeft);
+        else
+            sprintf(out, "%s : rents x%d%% (%d rounds remaining)",
+                    name, mod.percent, mod.roundsLeft);
+    }
+    else if(mod.type == MOD_INDEX_VALUE)
+    {
+        sprintf(out, "%s : value x%d%% (%d rounds remaining)",
+                game[0].board[mod.index].name, mod.percent, mod.roundsLeft);
+    }
+    else if(mod.type == MOD_RAIL_VALUE)
+    {
+        sprintf(out, "Railway values : x%d%% (%d rounds remaining)",
+                mod.percent, mod.roundsLeft);
+    }
+    else if(mod.type == MOD_RAIL_RENT)
+    {
+        sprintf(out, "Railway rents : x%d%% (%d rounds remaining)",
+                mod.percent, mod.roundsLeft);
+    }
+    else if(mod.type == MOD_UTIL_RENT)
+    {
+        sprintf(out, "Utility rents : x%d%% (%d rounds remaining)",
+                mod.percent, mod.roundsLeft);
+    }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+/* Prints the "Other Active Conditions" section (events and
+   government regulations still running). */
+void printOtherConditions(GameState game[])
+{
+    int i;
+    int shown;
+
+    shown = 0;
+
+    for(i = 0; i < game[0].economy.modifierCount; i++)
+    {
+        ActiveModifier mod;
+        char line[100];
+
+        mod = game[0].economy.modifiers[i];
+
+        if(mod.source != SRC_GENERAL)
+            continue;
+
+        if(!describeOtherCondition(game, mod, line))
+            continue;
+
+        if(!shown)
+        {
+            printSectionHeader("Other Active Conditions");
+            shown = 1;
+        }
+
+        printf("%s\n", line);
+    }
+}
+
 /* Rule-LK 36: shows the currently active market conditions at the
    end of every round, in the Section 5 format. */
 void displayMarketConditions(GameState game[])
@@ -217,12 +383,9 @@ void displayMarketConditions(GameState game[])
             continue;
 
         groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
-
-        printf("Market Boom\n");
-        printf("-------------\n");
-        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
-        printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
-
+        printBoomDecline("Market Boom", name,
+                         game[0].economy.modifiers[i].percent,
+                         game[0].economy.modifiers[i].roundsLeft);
         shown = 1;
         break;
     }
@@ -237,194 +400,30 @@ void displayMarketConditions(GameState game[])
             continue;
 
         groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
-
-        printf("Market Decline\n");
-        printf("----------------\n");
-        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
-        printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
-
+        printBoomDecline("Market Decline", name,
+                         game[0].economy.modifiers[i].percent,
+                         game[0].economy.modifiers[i].roundsLeft);
         shown = 1;
         break;
     }
 
     /* Regional Development Card effects (Table 4) */
-    {
-        int first;
-
-        first = 1;
-
-        for(i = 0; i < game[0].economy.modifierCount; i++)
-        {
-            char name[48];
-
-            if(game[0].economy.modifiers[i].source != SRC_REGIONAL)
-                continue;
-
-            switch(game[0].economy.modifiers[i].type)
-            {
-                case MOD_GROUP_VALUE:
-                case MOD_GROUP_RENT:
-                    if(game[0].economy.modifiers[i].group >= 0 &&
-                       game[0].economy.modifiers[i].group < NO_GROUP)
-                        groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
-                    else
-                        strcpy(name, "Unknown");
-
-                    if(first)
-                    {
-                        printf("Regional Development\n");
-                        printf("-----------------------\n");
-                        first = 0;
-                    }
-
-                    if(game[0].economy.modifiers[i].type == MOD_GROUP_VALUE)
-                        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
-                    else
-                        printf("%s rents (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
-
-                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
-                    shown = 1;
-                    break;
-
-                case MOD_INDEX_VALUE:
-                    if(first)
-                    {
-                        printf("Regional Development\n");
-                        printf("-----------------------\n");
-                        first = 0;
-                    }
-
-                    printf("%s (%+d%%)\n",
-                           game[0].board[game[0].economy.modifiers[i].index].name,
-                           game[0].economy.modifiers[i].percent - 100);
-                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
-                    shown = 1;
-                    break;
-
-                case MOD_RAIL_RENT:
-                case MOD_UTIL_RENT:
-                    if(first)
-                    {
-                        printf("Regional Development\n");
-                        printf("-----------------------\n");
-                        first = 0;
-                    }
-
-                    if(game[0].economy.modifiers[i].type == MOD_RAIL_RENT)
-                        printf("Railway rents (%+d%%)\n", game[0].economy.modifiers[i].percent - 100);
-                    else
-                        printf("Utility rents (%+d%%)\n", game[0].economy.modifiers[i].percent - 100);
-
-                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
-                    shown = 1;
-                    break;
-
-                default:
-                    break;
-            }
-        }
-    }
+    if(printRegionalSection(game))
+        shown = 1;
 
     if(!shown)
         printf("No active market booms, declines or regional conditions right now.\n");
 
-    /* Other active event/regulation effects (kept so nothing is lost) */
-    {
-        int otherShown;
-        char name[32];
+    /* Other active event/regulation effects */
+    printOtherConditions(game);
 
-        otherShown = 0;
-
-        for(i = 0; i < game[0].economy.modifierCount; i++)
-        {
-            if(game[0].economy.modifiers[i].source != SRC_GENERAL)
-                continue;
-
-            switch(game[0].economy.modifiers[i].type)
-            {
-                case MOD_GROUP_VALUE:
-                case MOD_GROUP_RENT:
-                    groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
-
-                    if(!otherShown)
-                    {
-                        printf("Other Active Conditions\n");
-                        printf("-------------------------\n");
-                        otherShown = 1;
-                    }
-
-                    if(game[0].economy.modifiers[i].type == MOD_GROUP_VALUE)
-                        printf("%s : values x%d%% (%d rounds remaining)\n",
-                               name, game[0].economy.modifiers[i].percent,
-                               game[0].economy.modifiers[i].roundsLeft);
-                    else
-                        printf("%s : rents x%d%% (%d rounds remaining)\n",
-                               name, game[0].economy.modifiers[i].percent,
-                               game[0].economy.modifiers[i].roundsLeft);
-                    break;
-
-                case MOD_INDEX_VALUE:
-                    if(!otherShown)
-                    {
-                        printf("Other Active Conditions\n");
-                        printf("-------------------------\n");
-                        otherShown = 1;
-                    }
-
-                    printf("%s : value x%d%% (%d rounds remaining)\n",
-                           game[0].board[game[0].economy.modifiers[i].index].name,
-                           game[0].economy.modifiers[i].percent,
-                           game[0].economy.modifiers[i].roundsLeft);
-                    break;
-
-                case MOD_RAIL_VALUE:
-                    if(!otherShown)
-                    {
-                        printf("Other Active Conditions\n");
-                        printf("-------------------------\n");
-                        otherShown = 1;
-                    }
-
-                    printf("Railway values : x%d%% (%d rounds remaining)\n",
-                           game[0].economy.modifiers[i].percent,
-                           game[0].economy.modifiers[i].roundsLeft);
-                    break;
-
-                case MOD_RAIL_RENT:
-                case MOD_UTIL_RENT:
-                    if(!otherShown)
-                    {
-                        printf("Other Active Conditions\n");
-                        printf("-------------------------\n");
-                        otherShown = 1;
-                    }
-
-                    if(game[0].economy.modifiers[i].type == MOD_RAIL_RENT)
-                        printf("Railway rents : x%d%% (%d rounds remaining)\n",
-                               game[0].economy.modifiers[i].percent,
-                               game[0].economy.modifiers[i].roundsLeft);
-                    else
-                        printf("Utility rents : x%d%% (%d rounds remaining)\n",
-                               game[0].economy.modifiers[i].percent,
-                               game[0].economy.modifiers[i].roundsLeft);
-                    break;
-
-                default:
-                    break;
-            }
-        }
-    }
-
-    printf("Inflation\n");
-    printf("------------\n");
+    printSectionHeader("Inflation");
     printf("%+d%%\n", game[0].economy.inflationRate);
 
-    printf("Current Loan Interest\n");
-    printf("-----------------------\n");
+    printSectionHeader("Current Loan Interest");
     printf("%d%%\n", game[0].economy.loanInterestRate);
 
-    printf("Current Income Tax Rate\n");
-    printf("-------------------------\n");
+    printSectionHeader("Current Income Tax Rate");
     printf("%d%%\n", game[0].economy.incomeTaxRate);
 
     printf("=========================================\n");

@@ -6,7 +6,6 @@
 /* board.c */
 
 void initializeBoard(GameState game[]);
-void displayBoard(GameState game[]);
 
 void setProperty(GameState game[],
                  int index,
@@ -29,7 +28,6 @@ void setSpecialSquare(GameState game[],
 /* players.c */
 
 void initializePlayers(GameState game[]);
-void displayPlayers(GameState game[]);
 
 int shouldBuyProperty(GameState game[], int playerIndex);
 int shouldConstruct(GameState game[], int playerIndex, int cost, int isHotel);
@@ -47,6 +45,11 @@ int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost);
 int shouldPayBail(GameState game[], int playerIndex);
 
 /* finance.c */
+
+void stripOwnership(GameState game[], int index);
+void resetLoan(GameState game[], int playerIndex);
+void adjustOwnedCount(GameState game[], int playerIndex, int index, int delta);
+PropertyGroup groupOf(GameState game[], int index);
 
 void buyProperty(GameState game[], int playerIndex);
 void payRent(GameState game[], int playerIndex, int diceValue);
@@ -104,6 +107,8 @@ void displayFinalResults(GameState game[]);
 
 /* events.c */
 
+void clampLoanInterest(GameState game[]);
+void adjustLoanInterest(GameState game[], int deltaPercent);
 void executeEvent(GameState game[], int playerIndex);
 void triggerEconomicEvent(GameState game[]);
 void triggerGovernmentRegulation(GameState game[]);
@@ -120,6 +125,7 @@ void displayMarketConditions(GameState game[]);
 
 /* bank.c */
 
+int groupBasePrice(GameState game[], PropertyGroup group);
 int totalEligibleCollateral(GameState game[], int playerIndex);
 int calculateMaxLoan(GameState game[], int playerIndex);
 void obtainLoan(GameState game[], int playerIndex);

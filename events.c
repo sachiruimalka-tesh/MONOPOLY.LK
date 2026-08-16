@@ -3,6 +3,23 @@
 #include "types.h"
 #include "functions.h"
 
+/* Keeps the loan interest rate inside its allowed range. */
+void clampLoanInterest(GameState game[])
+{
+    if(game[0].economy.loanInterestRate < LOAN_INTEREST_MIN)
+        game[0].economy.loanInterestRate = LOAN_INTEREST_MIN;
+
+    if(game[0].economy.loanInterestRate > LOAN_INTEREST_MAX)
+        game[0].economy.loanInterestRate = LOAN_INTEREST_MAX;
+}
+
+/* Moves the loan interest rate up or down by deltaPercent. */
+void adjustLoanInterest(GameState game[], int deltaPercent)
+{
+    game[0].economy.loanInterestRate += deltaPercent;
+    clampLoanInterest(game);
+}
+
 /* Appendix A: 20 National Event Cards, drawn when a player lands on
    an EVENT square. currentCardIndex cycles 0-19 and wraps around,
    which behaves the same as "draw the top card, put it at the
@@ -78,21 +95,17 @@ void executeEvent(GameState game[], int playerIndex)
             break;
 
         case 7:
-            game[0].economy.loanInterestRate -= 2;
-            if(game[0].economy.loanInterestRate < 1)
-                game[0].economy.loanInterestRate = 1;
+            adjustLoanInterest(game, -LOAN_INTEREST_STEP);
 
-            printf("Interest Rate Cut : Loan interest reduced by 2%%. Now %d%%.\n",
-                   game[0].economy.loanInterestRate);
+            printf("Interest Rate Cut : Loan interest reduced by %d%%. Now %d%%.\n",
+                   LOAN_INTEREST_STEP, game[0].economy.loanInterestRate);
             break;
 
         case 8:
-            game[0].economy.loanInterestRate += 2;
-            if(game[0].economy.loanInterestRate > 25)
-                game[0].economy.loanInterestRate = 25;
+            adjustLoanInterest(game, LOAN_INTEREST_STEP);
 
-            printf("Interest Rate Increase : Loan interest increased by 2%%. Now %d%%.\n",
-                   game[0].economy.loanInterestRate);
+            printf("Interest Rate Increase : Loan interest increased by %d%%. Now %d%%.\n",
+                   LOAN_INTEREST_STEP, game[0].economy.loanInterestRate);
             break;
 
         case 9:
@@ -178,7 +191,7 @@ void executeEvent(GameState game[], int playerIndex)
             break;
     }
 
-    game[0].economy.currentCardIndex = (game[0].economy.currentCardIndex + 1) % 20;
+    game[0].economy.currentCardIndex = (game[0].economy.currentCardIndex + 1) % EVENT_CARD_COUNT;
 }
 
 /* Section 2.5: one of 8 events, every 15 rounds, affecting every player. */
@@ -186,7 +199,7 @@ void triggerEconomicEvent(GameState game[])
 {
     int choice;
 
-    choice = rand() % 8;
+    choice = rand() % ECONOMIC_EVENT_COUNT;
 
     printf("\n=== Economic Event ===\n");
 
@@ -230,8 +243,7 @@ void triggerEconomicEvent(GameState game[])
             addModifier(game, MOD_RECESSION, -1, -1, 100, 15);
 
             game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, 15);
-            if(game[0].economy.loanInterestRate > 25)
-                game[0].economy.loanInterestRate = 25;
+            clampLoanInterest(game);
             break;
 
         case 4:
@@ -241,8 +253,7 @@ void triggerEconomicEvent(GameState game[])
             addModifier(game, MOD_VALUE_GLOBAL, -1, -1, 110, 15);
 
             game[0].economy.loanInterestRate = applyRate(game[0].economy.loanInterestRate, -10);
-            if(game[0].economy.loanInterestRate < 1)
-                game[0].economy.loanInterestRate = 1;
+            clampLoanInterest(game);
             break;
 
         case 5:
@@ -278,7 +289,7 @@ void triggerGovernmentRegulation(GameState game[])
 {
     int choice;
 
-    choice = rand() % 8;
+    choice = rand() % REGULATION_COUNT;
 
     printf("\n=== Government Regulation ===\n");
 
@@ -287,20 +298,19 @@ void triggerGovernmentRegulation(GameState game[])
         case 0:
             game[0].economy.incomeTaxRate = applyRate(game[0].economy.incomeTaxRate, 50);
 
-            if(game[0].economy.incomeTaxRate > 25)
-                game[0].economy.incomeTaxRate = 25;
+            if(game[0].economy.incomeTaxRate > TAX_RATE_MAX)
+                game[0].economy.incomeTaxRate = TAX_RATE_MAX;
 
             printf("Increase Property Tax\n");
             printf("Income Tax rate increased by 50%%. Now %d%%.\n", game[0].economy.incomeTaxRate);
             break;
 
         case 1:
-            game[0].economy.loanInterestRate -= 2;
-            if(game[0].economy.loanInterestRate < 1)
-                game[0].economy.loanInterestRate = 1;
+            adjustLoanInterest(game, -LOAN_INTEREST_STEP);
 
             printf("Reduce Loan Interest\n");
-            printf("Interest decreased by 2%%. Now %d%%.\n", game[0].economy.loanInterestRate);
+            printf("Interest decreased by %d%%. Now %d%%.\n",
+                   LOAN_INTEREST_STEP, game[0].economy.loanInterestRate);
             break;
 
         case 2:
@@ -323,7 +333,7 @@ void triggerGovernmentRegulation(GameState game[])
                 if(game[0].board[i].type == PROPERTY && game[0].board[i].property.hotel &&
                    game[0].board[i].property.owner != -1)
                 {
-                    tax = (currentMarketValue(game, i) * 25) / 100;
+                    tax = (currentMarketValue(game, i) * HOTEL_LUXURY_TAX_PERCENT) / 100;
                     payMoney(game, game[0].board[i].property.owner, tax);
                 }
             }

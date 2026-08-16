@@ -4,18 +4,24 @@
 
 /* Rule-LK: each colour group has a base price that is used ONLY for
    loan calculations (individual purchase prices are used for
-   buying).  Railways and utilities use their own mortgage value. */
-static int groupBasePrice[NO_GROUP] =
+   buying).  It matches the first property in the group on the board,
+   so this reads it straight from the board instead of storing a
+   second copy.  Railways and utilities use their own mortgage value. */
+int groupBasePrice(GameState game[], PropertyGroup group)
 {
-    1500,   /* BROWN */
-    2500,   /* LIGHT_BLUE */
-    3500,   /* PINK */
-    4500,   /* ORANGE */
-    5500,   /* RED */
-    6500,   /* YELLOW */
-    8000,   /* GREEN */
-    10000   /* DARK_BLUE */
-};
+    int i;
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        if(game[0].board[i].type == PROPERTY &&
+           game[0].board[i].property.group == group)
+        {
+            return game[0].board[i].property.purchasePrice;
+        }
+    }
+
+    return 0;
+}
 
 int totalEligibleCollateral(GameState game[], int playerIndex)
 {
@@ -48,15 +54,12 @@ int totalEligibleCollateral(GameState game[], int playerIndex)
            a declining group's 10% less.  Colour property collateral
            is based on the group base price (not the individual
            purchase price - that is only used for buying). */
-        group = -1;
-
-        if(game[0].board[i].type == PROPERTY)
-            group = game[0].board[i].property.group;
+        group = groupOf(game, i);
 
         mult = modifierMultiplier(game, MOD_MARKET_MORTGAGE, group, -1);
 
         if(game[0].board[i].type == PROPERTY)
-            total += (groupBasePrice[group] * mult) / 100;
+            total += (groupBasePrice(game, group) * mult) / 100;
         else
             total += (game[0].board[i].property.mortgageValue * mult) / 100;
     }
@@ -67,7 +70,7 @@ int totalEligibleCollateral(GameState game[], int playerIndex)
 /* Rule-LK 2: max loan is 75% of eligible collateral. */
 int calculateMaxLoan(GameState game[], int playerIndex)
 {
-    return (totalEligibleCollateral(game, playerIndex) * 75) / 100;
+    return (totalEligibleCollateral(game, playerIndex) * LOAN_COLLATERAL_PERCENT) / 100;
 }
 
 void obtainLoan(GameState game[], int playerIndex)
@@ -143,10 +146,7 @@ void repayLoan(GameState game[], int playerIndex, int amount)
 
     if(game[0].players[playerIndex].loan.amount <= 0)
     {
-        game[0].players[playerIndex].loan.active = 0;
-        game[0].players[playerIndex].loan.amount = 0;
-        game[0].players[playerIndex].loan.interestRate = 0;
-        game[0].players[playerIndex].loan.remainingRounds = 0;
+        resetLoan(game, playerIndex);
 
         for(i = 0; i < BOARD_SIZE; i++)
         {
@@ -243,7 +243,7 @@ void increaseLoan(GameState game[], int playerIndex)
         if(game[0].board[i].type == PROPERTY)
         {
             availableCollateral +=
-                (groupBasePrice[game[0].board[i].property.group] *
+                (groupBasePrice(game, game[0].board[i].property.group) *
                  modifierMultiplier(game, MOD_MARKET_MORTGAGE,
                                     game[0].board[i].property.group, -1)) / 100;
         }
@@ -253,7 +253,7 @@ void increaseLoan(GameState game[], int playerIndex)
         }
     }
 
-    additional = (availableCollateral * 75) / 100;
+    additional = (availableCollateral * LOAN_COLLATERAL_PERCENT) / 100;
 
     if(additional <= 0)
         return;
@@ -291,10 +291,10 @@ void extendLoan(GameState game[], int playerIndex)
     if(!game[0].players[playerIndex].loan.active)
         return;
 
-    game[0].players[playerIndex].loan.remainingRounds += 10;
+    game[0].players[playerIndex].loan.remainingRounds += LOAN_EXTEND_ROUNDS;
 
-    printf("\n%s extended their loan by 10 rounds.\n",
-           game[0].players[playerIndex].name);
+    printf("\n%s extended their loan by %d rounds.\n",
+           game[0].players[playerIndex].name, LOAN_EXTEND_ROUNDS);
     printf("New Duration : %d Rounds remaining\n",
            game[0].players[playerIndex].loan.remainingRounds);
 }
@@ -346,25 +346,14 @@ void foreclose(GameState game[], int playerIndex)
 
         demolishBuildingsOn(game, i);
 
-        game[0].board[i].property.owner = -1;
-        game[0].board[i].property.loanLocked = 0;
-        game[0].board[i].property.mortgaged = 0;
-        game[0].board[i].property.insurance = NO_INSURANCE;
+        stripOwnership(game, i);
 
-        if(game[0].board[i].type == PROPERTY)
-            game[0].players[playerIndex].propertiesOwned--;
-        else if(game[0].board[i].type == RAILWAY)
-            game[0].players[playerIndex].railwaysOwned--;
-        else if(game[0].board[i].type == UTILITY)
-            game[0].players[playerIndex].utilitiesOwned--;
+        adjustOwnedCount(game, playerIndex, i, -1);
 
         runAuction(game, i, -1);
     }
 
-    game[0].players[playerIndex].loan.active = 0;
-    game[0].players[playerIndex].loan.amount = 0;
-    game[0].players[playerIndex].loan.interestRate = 0;
-    game[0].players[playerIndex].loan.remainingRounds = 0;
+    resetLoan(game, playerIndex);
 
     printf("Outstanding debt cleared.\n");
 

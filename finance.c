@@ -2,6 +2,48 @@
 #include "types.h"
 #include "functions.h"
 
+/* Sets a square back to "unowned": no owner, no mortgage, no loan
+   pledge and no insurance. Used when selling, foreclosing or
+   liquidating a property. */
+void stripOwnership(GameState game[], int index)
+{
+    game[0].board[index].property.owner = -1;
+    game[0].board[index].property.mortgaged = 0;
+    game[0].board[index].property.loanLocked = 0;
+    game[0].board[index].property.insurance = NO_INSURANCE;
+}
+
+/* Clears a player's loan completely (amount, rate and rounds). */
+void resetLoan(GameState game[], int playerIndex)
+{
+    game[0].players[playerIndex].loan.active = 0;
+    game[0].players[playerIndex].loan.amount = 0;
+    game[0].players[playerIndex].loan.interestRate = 0;
+    game[0].players[playerIndex].loan.remainingRounds = 0;
+}
+
+/* Adds delta to the owned-count that matches the square's type
+   (property, railway or utility). Pass 1 when buying, -1 when
+   selling or losing a square. */
+void adjustOwnedCount(GameState game[], int playerIndex, int index, int delta)
+{
+    if(game[0].board[index].type == PROPERTY)
+        game[0].players[playerIndex].propertiesOwned += delta;
+    else if(game[0].board[index].type == RAILWAY)
+        game[0].players[playerIndex].railwaysOwned += delta;
+    else if(game[0].board[index].type == UTILITY)
+        game[0].players[playerIndex].utilitiesOwned += delta;
+}
+
+/* The colour group of a square, or -1 if it isn't a property. */
+PropertyGroup groupOf(GameState game[], int index)
+{
+    if(game[0].board[index].type == PROPERTY)
+        return game[0].board[index].property.group;
+
+    return (PropertyGroup)-1;
+}
+
 void receiveMoney(GameState game[], int playerIndex, int amount)
 {
     /* bankrupt players take no further part in the game (Section 1.3) */
@@ -57,10 +99,7 @@ void liquidateBankruptAssets(GameState game[], int playerIndex)
     printf("%s's remaining assets are being liquidated.\n",
            game[0].players[playerIndex].name);
 
-    game[0].players[playerIndex].loan.active = 0;
-    game[0].players[playerIndex].loan.amount = 0;
-    game[0].players[playerIndex].loan.interestRate = 0;
-    game[0].players[playerIndex].loan.remainingRounds = 0;
+    resetLoan(game, playerIndex);
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
@@ -69,19 +108,11 @@ void liquidateBankruptAssets(GameState game[], int playerIndex)
 
         demolishBuildingsOn(game, i);
 
-        game[0].board[i].property.owner = -1;
-        game[0].board[i].property.mortgaged = 0;
-        game[0].board[i].property.loanLocked = 0;
-        game[0].board[i].property.insurance = NO_INSURANCE;
+        stripOwnership(game, i);
         game[0].board[i].property.damaged = 0;
         game[0].board[i].property.repairCostOwed = 0;
 
-        if(game[0].board[i].type == PROPERTY)
-            game[0].players[playerIndex].propertiesOwned--;
-        else if(game[0].board[i].type == RAILWAY)
-            game[0].players[playerIndex].railwaysOwned--;
-        else if(game[0].board[i].type == UTILITY)
-            game[0].players[playerIndex].utilitiesOwned--;
+        adjustOwnedCount(game, playerIndex, i, -1);
 
         runAuction(game, i, -1);
     }
@@ -198,10 +229,7 @@ void mortgageProperty(GameState game[], int playerIndex)
     /* Rule-LK 34: a booming group's mortgage values rise by 15%, a
        declining group's fall by 10%. Railways and utilities are
        unaffected. */
-    group = -1;
-
-    if(game[0].board[propIndex].type == PROPERTY)
-        group = game[0].board[propIndex].property.group;
+    group = groupOf(game, propIndex);
 
     payout = (game[0].board[propIndex].property.mortgageValue *
               modifierMultiplier(game, MOD_MARKET_MORTGAGE, group, -1)) / 100;
@@ -227,7 +255,7 @@ void redeemMortgage(GameState game[], int playerIndex)
         return;
 
     /* pay back the mortgage value plus 10% interest */
-    redeemCost = (game[0].board[propIndex].property.mortgageValue * 110) / 100;
+    redeemCost = (game[0].board[propIndex].property.mortgageValue * MORTGAGE_REPAY_PERCENT) / 100;
 
     if(!shouldRedeemMortgage(game, playerIndex, redeemCost))
         return;
@@ -322,13 +350,13 @@ int calculateRailwayRent(GameState game[], int playerIndex)
     }
 
     if(count == 1)
-        baseRent = 250;
+        baseRent = RAILWAY_RENT_1;
     else if(count == 2)
-        baseRent = 500;
+        baseRent = RAILWAY_RENT_2;
     else if(count == 3)
-        baseRent = 1000;
+        baseRent = RAILWAY_RENT_3;
     else if(count == 4)
-        baseRent = 2000;
+        baseRent = RAILWAY_RENT_4;
     else
         baseRent = 0;
 
@@ -357,9 +385,9 @@ int calculateUtilityRent(GameState game[], int playerIndex, int diceValue)
     }
 
     if(count == 2)
-        rent = 10 * diceValue;
+        rent = UTILITY_RENT_TWO * diceValue;
     else if(count == 1)
-        rent = 4 * diceValue;
+        rent = UTILITY_RENT_ONE * diceValue;
     else
         rent = 0;
 
@@ -541,10 +569,6 @@ void constructBuildings(GameState game[], int playerIndex)
     }
 }
 
-/* Rule 15 net worth formula. Three terms are always 0 in this
-   simulation - insurance claims are paid immediately, tax is always
-   paid immediately, and loan interest is folded into loan.amount -
-   so there's never a pending balance for those three to track. */
 int calculatePropertyValue(GameState game[], int playerIndex)
 {
     int i;
@@ -589,34 +613,23 @@ int calculateBuildingValue(GameState game[], int playerIndex)
     return total;
 }
 
-/* Rule 15 net worth formula. Three terms are always 0 in this
-   simulation - insurance claims are paid out immediately, tax is
-   always paid immediately, and loan interest is folded straight
-   into loan.amount - so there is never a pending balance for any
-   of those three to carry forward. */
+/* Rule 15 net worth formula: cash + property value + building value,
+   minus any outstanding loan amount. */
 int calculateNetWorth(GameState game[], int playerIndex)
 {
     int cash;
     int propertyValue;
     int buildingValue;
-    int insuranceClaimsReceivable;
     int outstandingLoans;
-    int accruedInterest;
-    int taxesDue;
 
     cash = game[0].players[playerIndex].cash;
     propertyValue = calculatePropertyValue(game, playerIndex);
     buildingValue = calculateBuildingValue(game, playerIndex);
 
-    insuranceClaimsReceivable = 0;
-    accruedInterest = 0;
-    taxesDue = 0;
-
     outstandingLoans = game[0].players[playerIndex].loan.active ?
                         game[0].players[playerIndex].loan.amount : 0;
 
-    return cash + propertyValue + buildingValue + insuranceClaimsReceivable
-           - outstandingLoans - accruedInterest - taxesDue;
+    return cash + propertyValue + buildingValue - outstandingLoans;
 }
 
 int countUndevelopedProperties(GameState game[], int playerIndex)
@@ -708,12 +721,9 @@ void sellLowValueProperty(GameState game[], int playerIndex)
 
     receiveMoney(game, playerIndex, bestValue);
 
-    game[0].board[best].property.owner = -1;
-    game[0].board[best].property.mortgaged = 0;
-    game[0].board[best].property.loanLocked = 0;
-    game[0].board[best].property.insurance = NO_INSURANCE;
+    stripOwnership(game, best);
 
-    game[0].players[playerIndex].propertiesOwned--;
+    adjustOwnedCount(game, playerIndex, best, -1);
 
     printf("\n%s sold %s to the Bank for LKR %d.\n",
            game[0].players[playerIndex].name,
@@ -768,12 +778,9 @@ void sellDecliningProperties(GameState game[], int playerIndex)
 
         receiveMoney(game, playerIndex, value);
 
-        game[0].board[i].property.owner = -1;
-        game[0].board[i].property.mortgaged = 0;
-        game[0].board[i].property.loanLocked = 0;
-        game[0].board[i].property.insurance = NO_INSURANCE;
+        stripOwnership(game, i);
 
-        game[0].players[playerIndex].propertiesOwned--;
+        adjustOwnedCount(game, playerIndex, i, -1);
 
         printf("\n%s sold %s to the Bank for LKR %d "
                "(expected to lose value).\n",
@@ -826,14 +833,34 @@ void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex)
            game[0].players[playerIndex].name,
            game[0].board[best].name);
 
-    game[0].board[best].property.owner = -1;
-    game[0].board[best].property.mortgaged = 0;
-    game[0].board[best].property.loanLocked = 0;
-    game[0].board[best].property.insurance = NO_INSURANCE;
+    stripOwnership(game, best);
 
-    game[0].players[playerIndex].propertiesOwned--;
+    adjustOwnedCount(game, playerIndex, best, -1);
 
     runAuction(game, best, playerIndex);
+}
+
+/* Sells excess undeveloped properties until the player is back at
+   the allowed limit (or nothing more can be sold). */
+void forceSellExcess(GameState game[], int playerIndex)
+{
+    int excess;
+
+    excess = countUndevelopedProperties(game, playerIndex) - MAX_UNDEVELOPED_PROPS;
+
+    while(excess > 0)
+    {
+        int before = countUndevelopedProperties(game, playerIndex);
+
+        sellUndevelopedPropertyToAuction(game, playerIndex);
+
+        /* nothing sellable left (e.g. every excess property is
+           loan-locked) - stop to avoid a non-terminating loop */
+        if(countUndevelopedProperties(game, playerIndex) >= before)
+            break;
+
+        excess = countUndevelopedProperties(game, playerIndex) - MAX_UNDEVELOPED_PROPS;
+    }
 }
 
 /* Rule-LK 8 (Anti-Speculation Act): once active, a player may keep
@@ -843,7 +870,6 @@ void enforceAntiSpeculation(GameState game[])
 {
     int i;
     int undeveloped;
-    int excess;
 
     if(!game[0].economy.antiSpeculationActive)
     {
@@ -863,29 +889,13 @@ void enforceAntiSpeculation(GameState game[])
 
         undeveloped = countUndevelopedProperties(game, i);
 
-        if(undeveloped > 3)
+        if(undeveloped > MAX_UNDEVELOPED_PROPS)
         {
             game[0].players[i].antiSpecRounds++;
 
-            if(game[0].players[i].antiSpecRounds >= 5)
+            if(game[0].players[i].antiSpecRounds >= ANTI_SPEC_TRIGGER_ROUNDS)
             {
-                excess = countUndevelopedProperties(game, i) - 3;
-
-                while(excess > 0)
-                {
-                    int before = countUndevelopedProperties(game, i);
-
-                    sellUndevelopedPropertyToAuction(game, i);
-
-                    /* nothing sellable left (e.g. every excess
-                       property is loan-locked) - stop to avoid a
-                       non-terminating loop */
-                    if(countUndevelopedProperties(game, i) >= before)
-                        break;
-
-                    excess = countUndevelopedProperties(game, i) - 3;
-                }
-
+                forceSellExcess(game, i);
                 game[0].players[i].antiSpecRounds = 0;
             }
         }

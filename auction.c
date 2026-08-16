@@ -14,10 +14,7 @@ int getAskingValue(GameState game[], int propIndex)
 
     value = currentMarketValue(game, propIndex);
 
-    group = -1;
-
-    if(game[0].board[propIndex].type == PROPERTY)
-        group = game[0].board[propIndex].property.group;
+    group = groupOf(game, propIndex);
 
     value = (value * modifierMultiplier(game, MOD_AUCTION_PRICE, group, -1)) / 100;
 
@@ -43,7 +40,7 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
     printf("\n*** AUCTION ***\n");
     printf("Property : %s\n", game[0].board[propIndex].name);
 
-    currentBid = getAskingValue(game, propIndex) / 2;
+    currentBid = getAskingValue(game, propIndex) / AUCTION_OPENING_DIVISOR;
 
     formatLKR(currentBid, moneyBuf);
     printf("Opening Bid : LKR %s\n", moneyBuf);
@@ -61,7 +58,7 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
 
     safetyRounds = 0;
 
-    while(activeCount > 1 && safetyRounds < 200)
+    while(activeCount > 1 && safetyRounds < AUCTION_MAX_ROUNDS)
     {
         for(i = 0; i < MAX_PLAYERS; i++)
         {
@@ -71,7 +68,7 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
             if(activeCount <= 1)
                 break;
 
-            candidateBid = currentBid + 250;
+            candidateBid = currentBid + AUCTION_BID_INCREMENT;
 
             if(willingToBid(game, i, propIndex, candidateBid))
             {
@@ -95,7 +92,6 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
 
     if(highBidder == -1)
     {
-        int i;
         int lastActive;
 
         /* One player never got a chance to bid (e.g. the first active
@@ -112,15 +108,8 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
             }
         }
 
-        if(lastActive == -1)
-        {
-            printf("No bids received. %s remains with the Bank.\n",
-                   game[0].board[propIndex].name);
-            return;
-        }
-
-        /* They may still decline the opening price itself */
-        if(!willingToBid(game, lastActive, propIndex, currentBid))
+        /* No one left to bid, or they decline the opening price */
+        if(lastActive == -1 || !willingToBid(game, lastActive, propIndex, currentBid))
         {
             printf("No bids received. %s remains with the Bank.\n",
                    game[0].board[propIndex].name);
@@ -137,12 +126,7 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
 
     game[0].board[propIndex].property.owner = highBidder;
 
-    if(game[0].board[propIndex].type == PROPERTY)
-        game[0].players[highBidder].propertiesOwned++;
-    else if(game[0].board[propIndex].type == RAILWAY)
-        game[0].players[highBidder].railwaysOwned++;
-    else if(game[0].board[propIndex].type == UTILITY)
-        game[0].players[highBidder].utilitiesOwned++;
+    adjustOwnedCount(game, highBidder, propIndex, 1);
 
     printf("%s wins the auction for LKR %s.\n",
            game[0].players[highBidder].name, moneyBuf);

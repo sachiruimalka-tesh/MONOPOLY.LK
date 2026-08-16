@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "types.h"
 #include "functions.h"
 
@@ -13,7 +14,7 @@ int propertyValue(GameState game[], int propIndex)
    consistently everywhere repair cost is needed. */
 int repairCost(GameState game[], int propIndex)
 {
-    return (propertyValue(game, propIndex) * 30) / 100;
+    return (propertyValue(game, propIndex) * REPAIR_COST_PERCENT) / 100;
 }
 
 int isCovered(InsuranceType policy, DisasterType disaster)
@@ -48,17 +49,17 @@ DisasterType pickDisaster(GameState game[])
     int roll;
     DisasterType result;
 
-    weights[FIRE] = 20;
-    weights[FLOOD] = 20;
-    weights[RIOT] = 20;
-    weights[BUILDING_COLLAPSE] = 20;
-    weights[ELECTRICAL_FAILURE] = 20;
+    weights[FIRE] = DISASTER_WEIGHT;
+    weights[FLOOD] = DISASTER_WEIGHT;
+    weights[RIOT] = DISASTER_WEIGHT;
+    weights[BUILDING_COLLAPSE] = DISASTER_WEIGHT;
+    weights[ELECTRICAL_FAILURE] = DISASTER_WEIGHT;
 
     if(isModifierActive(game, MOD_FLOOD_RISK, -1, -1))
-        weights[FLOOD] += 30;
+        weights[FLOOD] += DISASTER_BOOST;
 
     if(isModifierActive(game, MOD_RIOT_RISK, -1, -1))
-        weights[RIOT] += 30;
+        weights[RIOT] += DISASTER_BOOST;
 
     total = 0;
 
@@ -91,11 +92,11 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     char premiumBuf[32];
 
     if(type == BASIC_INSURANCE)
-        premiumPercent = 5;
+        premiumPercent = PREMIUM_BASIC_PERCENT;
     else if(type == COMPREHENSIVE_INSURANCE)
-        premiumPercent = 10;
+        premiumPercent = PREMIUM_COMPREHENSIVE_PERCENT;
     else if(type == BUSINESS_INTERRUPTION)
-        premiumPercent = 15;
+        premiumPercent = PREMIUM_INTERRUPTION_PERCENT;
     else
         return;
 
@@ -111,7 +112,7 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     payMoney(game, playerIndex, premium);
 
     game[0].board[propIndex].property.insurance = type;
-    game[0].board[propIndex].property.insuranceRoundsLeft = 20;
+    game[0].board[propIndex].property.insuranceRoundsLeft = INSURANCE_DURATION_ROUNDS;
 
     printf("\n%s purchased insurance for %s.\n",
            game[0].players[playerIndex].name,
@@ -161,7 +162,7 @@ int findPropertyToRenew(GameState game[], int playerIndex)
         if(game[0].board[i].property.insurance == NO_INSURANCE)
             continue;
 
-        if(game[0].board[i].property.insuranceRoundsLeft <= 10)
+        if(game[0].board[i].property.insuranceRoundsLeft <= INSURANCE_RENEW_AT)
             return i;
     }
 
@@ -184,8 +185,8 @@ void handleInsuranceVisit(GameState game[], int playerIndex)
 
         purchaseInsurance(game, playerIndex, propIndex, type);
 
-        printf("The policy on %s was renewed for another 20 rounds.\n",
-               game[0].board[propIndex].name);
+        printf("The policy on %s was renewed for another %d rounds.\n",
+               game[0].board[propIndex].name, INSURANCE_DURATION_ROUNDS);
         return;
     }
 
@@ -232,6 +233,55 @@ void tryAutoRepair(GameState game[], int playerIndex)
     }
 }
 
+/* Writes the name of a disaster into out. */
+void disasterName(DisasterType disaster, char out[])
+{
+    if(disaster == FIRE)
+        strcpy(out, "Fire");
+    else if(disaster == FLOOD)
+        strcpy(out, "Flood");
+    else if(disaster == RIOT)
+        strcpy(out, "Riot");
+    else if(disaster == BUILDING_COLLAPSE)
+        strcpy(out, "Building Collapse");
+    else
+        strcpy(out, "Electrical Failure");
+}
+
+/* Pays an insured player's compensation for a disaster and returns
+   how much they received. */
+int payCompensation(GameState game[], int chosen, int owner, int cost)
+{
+    int compensation;
+
+    compensation = (cost * compensationPercent(game[0].board[chosen].property.insurance)) / 100;
+
+    /* Political Unrest inflates Business Interruption claims (Rule-LK 34). */
+    if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION &&
+       isModifierActive(game, MOD_BI_CLAIMS, -1, -1))
+    {
+        compensation = (compensation * DAMAGE_REPAIR_MULTIPLIER) / 100;
+    }
+
+    receiveMoney(game, owner, compensation);
+
+    printf("Insurance Claim Approved.\n");
+    printf("Compensation Paid : LKR %d\n", compensation);
+
+    /* Business Interruption also covers 5 rounds of lost rental
+       income - the repair cost is fully paid above, but the
+       property still earns nothing for 5 rounds. */
+    if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION)
+    {
+        game[0].board[chosen].property.lostIncomeRoundsLeft = BI_LOST_INCOME_ROUNDS;
+        printf("%s will earn no rent for the next %d rounds "
+               "(Business Interruption).\n", game[0].board[chosen].name,
+               BI_LOST_INCOME_ROUNDS);
+    }
+
+    return compensation;
+}
+
 /* Rule-LK 10: every 10 rounds, one random developed property may
    be hit by a disaster. */
 void triggerDisaster(GameState game[])
@@ -244,6 +294,7 @@ void triggerDisaster(GameState game[])
     int owner;
     int cost;
     int compensation;
+    char name[32];
 
     developedCount = 0;
 
@@ -268,16 +319,8 @@ void triggerDisaster(GameState game[])
 
     printf("\n*** DISASTER ***\n");
 
-    if(disaster == FIRE)
-        printf("Fire occurred.\n");
-    else if(disaster == FLOOD)
-        printf("Flood occurred.\n");
-    else if(disaster == RIOT)
-        printf("Riot occurred.\n");
-    else if(disaster == BUILDING_COLLAPSE)
-        printf("Building Collapse occurred.\n");
-    else
-        printf("Electrical Failure occurred.\n");
+    disasterName(disaster, name);
+    printf("%s occurred.\n", name);
 
     printf("Affected Property : %s (owner : %s)\n",
            game[0].board[chosen].name, game[0].players[owner].name);
@@ -286,29 +329,7 @@ void triggerDisaster(GameState game[])
 
     if(isCovered(game[0].board[chosen].property.insurance, disaster))
     {
-        compensation = (cost * compensationPercent(game[0].board[chosen].property.insurance)) / 100;
-
-        /* Political Unrest inflates Business Interruption claims (Rule-LK 34). */
-        if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION &&
-           isModifierActive(game, MOD_BI_CLAIMS, -1, -1))
-        {
-            compensation = (compensation * 150) / 100;
-        }
-
-        receiveMoney(game, owner, compensation);
-
-        printf("Insurance Claim Approved.\n");
-        printf("Compensation Paid : LKR %d\n", compensation);
-
-        /* Business Interruption also covers 5 rounds of lost rental
-           income - the repair cost is fully paid above, but the
-           property still earns nothing for 5 rounds. */
-        if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION)
-        {
-            game[0].board[chosen].property.lostIncomeRoundsLeft = 5;
-            printf("%s will earn no rent for the next 5 rounds "
-                   "(Business Interruption).\n", game[0].board[chosen].name);
-        }
+        compensation = payCompensation(game, chosen, owner, cost);
     }
     else
     {
@@ -345,10 +366,10 @@ void processInsuranceExpiry(GameState game[])
 
         game[0].board[i].property.insuranceRoundsLeft--;
 
-        if(game[0].board[i].property.insuranceRoundsLeft == 3)
+        if(game[0].board[i].property.insuranceRoundsLeft == INSURANCE_EXPIRY_WARNING)
         {
-            printf("\nInsurance policy on %s expires in 3 rounds.\n",
-                   game[0].board[i].name);
+            printf("\nInsurance policy on %s expires in %d rounds.\n",
+                   game[0].board[i].name, INSURANCE_EXPIRY_WARNING);
         }
 
         if(game[0].board[i].property.insuranceRoundsLeft <= 0)

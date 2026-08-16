@@ -33,39 +33,11 @@ void initializePlayers(GameState game[])
         game[0].players[i].railwaysOwned = 0;
         game[0].players[i].utilitiesOwned = 0;
 
-        game[0].players[i].loan.active = 0;
-        game[0].players[i].loan.amount = 0;
-        game[0].players[i].loan.interestRate = 0;
-        game[0].players[i].loan.remainingRounds = 0;
+        resetLoan(game, i);
 
         game[0].players[i].sufferedLoss = 0;
         game[0].players[i].antiSpecRounds = 0;
     }
-}
-
-void displayPlayers(GameState game[])
-{
-    int i;
-
-    printf("\n================ PLAYERS ================\n");
-
-    for(i = 0; i < MAX_PLAYERS; i++)
-    {
-        printf("\nPlayer %d\n", i + 1);
-        printf("Name       : %s\n", game[0].players[i].name);
-        printf("Cash       : LKR %d\n", game[0].players[i].cash);
-        printf("Position   : %d\n", game[0].players[i].position);
-        printf("Properties : %d\n", game[0].players[i].propertiesOwned);
-        printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
-        printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
-
-        if(game[0].players[i].bankrupt)
-            printf("Status     : Bankrupt\n");
-        else
-            printf("Status     : Active\n");
-    }
-
-    printf("\n=========================================\n");
 }
 
 /* Decides whether a player wants to buy the property they just
@@ -131,7 +103,7 @@ int shouldConstruct(GameState game[], int playerIndex, int cost, int isHotel)
     switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
-            return (cash - cost >= 1000);
+            return (cash - cost >= MIN_CASH_SAFETY);
 
         case CONSERVATIVE_BANKER:
             /* never builds hotels while a loan is active - houses are
@@ -172,13 +144,13 @@ int wantsLoan(GameState game[], int playerIndex)
 
         case CONSERVATIVE_BANKER:
             /* only borrows if bankruptcy is close */
-            return (cash < 1000);
+            return (cash < MIN_CASH_SAFETY);
 
         case RISK_TAKER:
             return 1;
 
         case OPPORTUNISTIC_TRADER:
-            return (cash < 5000);
+            return (cash < RICH_CASH_LINE);
 
         default:
             return 0;
@@ -227,13 +199,13 @@ int wantsIncreaseLoan(GameState game[], int playerIndex)
             return 1;
 
         case CONSERVATIVE_BANKER:
-            return (cash < 3000);
+            return (cash < COMFORTABLE_CASH);
 
         case RISK_TAKER:
             return 1;
 
         case OPPORTUNISTIC_TRADER:
-            return (cash < 5000);
+            return (cash < RICH_CASH_LINE);
 
         default:
             return 0;
@@ -307,7 +279,7 @@ InsuranceType desiredInsurance(GameState game[], int playerIndex, int propIndex)
             return BASIC_INSURANCE;
 
         case OPPORTUNISTIC_TRADER:
-            if(purchasePrice >= 6000)
+            if(purchasePrice >= EXPENSIVE_PROP_PRICE)
                 return COMPREHENSIVE_INSURANCE;
             return NO_INSURANCE;
 
@@ -385,16 +357,16 @@ int shouldMortgage(GameState game[], int playerIndex)
     switch(game[0].players[playerIndex].strategy)
     {
         case CONSERVATIVE_BANKER:
-            return (cash < 3000);
+            return (cash < COMFORTABLE_CASH);
 
         case RISK_TAKER:
-            return (cash < 500);
+            return (cash < MIN_CASH_FLOOR);
 
         case AGGRESSIVE_INVESTOR:
-            return (cash < 1000);
+            return (cash < MIN_CASH_SAFETY);
 
         case OPPORTUNISTIC_TRADER:
-            return (cash < 1200);
+            return (cash < TRADER_CASH_FLOOR);
 
         default:
             return 0;
@@ -418,14 +390,14 @@ int shouldPayBail(GameState game[], int playerIndex)
     switch(game[0].players[playerIndex].strategy)
     {
         case CONSERVATIVE_BANKER:
-            return (cash >= 1500);
+            return (cash >= BAIL_CASH_SPARE);
 
         case RISK_TAKER:
             return 0;
 
         case AGGRESSIVE_INVESTOR:
         case OPPORTUNISTIC_TRADER:
-            return (cash >= 5000);
+            return (cash >= RICH_CASH_LINE);
 
         default:
             return 0;

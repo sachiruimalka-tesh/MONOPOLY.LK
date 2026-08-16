@@ -18,6 +18,84 @@
 
 #define LOAN_DURATION_ROUNDS   20
 #define LOAN_INTEREST_RATE     8   /* starting rate, drifts with inflation */
+#define LOAN_COLLATERAL_PERCENT 75 /* Rule-LK 2: max loan is 75% of collateral */
+#define LOAN_EXTEND_ROUNDS     10  /* Rule-LK 5: extension adds 10 rounds */
+#define MORTGAGE_REPAY_PERCENT 110 /* redeeming a mortgage costs 110% of its value */
+
+/* Loan interest rate limits */
+#define LOAN_INTEREST_MIN        1   /* interest can never go below this */
+#define LOAN_INTEREST_MAX       25   /* ...or above this */
+#define LOAN_INTEREST_STEP       2   /* cards/regulations move it by 2 points */
+#define TAX_RATE_MAX            25
+#define HOTEL_LUXURY_TAX_PERCENT 25  /* luxury tax: 25% of a hotel's value */
+
+/* Strategy decision thresholds, in LKR (rule-book strategy rules) */
+#define MIN_CASH_SAFETY        1000  /* reserve before spending / borrowing */
+#define MIN_CASH_FLOOR          500  /* risk taker's floor before mortgaging */
+#define TRADER_CASH_FLOOR      1200  /* opportunistic trader's mortgage floor */
+#define COMFORTABLE_CASH       3000  /* conservative banker's comfort line */
+#define BAIL_CASH_SPARE        1500  /* conservative banker's bail threshold */
+#define RICH_CASH_LINE         5000  /* rich-player threshold */
+#define EXPENSIVE_PROP_PRICE   6000  /* price above which a trader insures */
+
+/* Rent tables (Tables 7, 8): one railway/utility owned -> this rent */
+#define RAILWAY_RENT_1         250
+#define RAILWAY_RENT_2         500
+#define RAILWAY_RENT_3         1000
+#define RAILWAY_RENT_4         2000
+#define UTILITY_RENT_ONE        4   /* rent = 4 x dice */
+#define UTILITY_RENT_TWO       10   /* rent = 10 x dice when both owned */
+
+/* Auction rules */
+#define AUCTION_OPENING_DIVISOR 2   /* opening bid = asking value / 2 */
+#define AUCTION_BID_INCREMENT  250  /* every bid must raise the price by this */
+#define AUCTION_MAX_ROUNDS     200  /* safety limit so bidding always ends */
+
+/* Property market review (Rule-LK 30) */
+#define MARKET_REVIEW_EVERY    10   /* review happens every 10 rounds */
+#define MARKET_COOLDOWN_ROUNDS 30   /* a group can't re-trigger for 30 rounds */
+
+/* Property ageing and neglect (Rule-LK 15, 16, 25-27) */
+#define PROPERTY_AGE_LIMIT      50  /* value starts dropping past this age */
+#define DEPRECIATION_STEP        5  /* every 5 rounds past the limit */
+#define MAX_DEPRECIATION        30
+#define RENOVATION_COST_PERCENT 10  /* renovation costs 10% of current value */
+#define RENOVATION_RENT_BOOST    5  /* renovated base rent rises 5% */
+#define NEGLECT_ROUNDS          20  /* no maintenance this long = structural damage */
+#define STRUCTURAL_VALUE_LOSS   15  /* damaged building loses 15% of its value */
+#define STRUCTURAL_RENT_LOSS    25  /* ...and 25% of its rent */
+#define DAMAGE_REPAIR_MULTIPLIER 150 /* fixing structural damage costs 150% */
+
+/* Insurance rules */
+#define REPAIR_COST_PERCENT     30  /* repairs cost 30% of a property's value */
+#define PREMIUM_BASIC_PERCENT    5
+#define PREMIUM_COMPREHENSIVE_PERCENT 10
+#define PREMIUM_INTERRUPTION_PERCENT 15
+#define INSURANCE_DURATION_ROUNDS 20
+#define INSURANCE_RENEW_AT       10  /* renew when 10 or fewer rounds remain */
+#define INSURANCE_EXPIRY_WARNING 3   /* warn 3 rounds before a policy expires */
+#define DISASTER_WEIGHT         20  /* every disaster is equally likely at base */
+#define DISASTER_BOOST          30  /* weather/unrest makes one type +30 likely */
+#define BI_LOST_INCOME_ROUNDS    5  /* Business Interruption: no rent for 5 rounds */
+
+/* Jail (Rule 13) */
+#define JAIL_SQUARE             10
+#define JAIL_MAX_TURNS           3
+
+/* Event / card deck sizes */
+#define EVENT_CARD_COUNT        20
+#define ECONOMIC_EVENT_COUNT     8
+#define REGULATION_COUNT         8
+#define REGIONAL_CARD_COUNT     12
+
+/* Round cadences for periodic events */
+#define ECONOMY_CYCLE           10  /* disasters, inflation, market review */
+#define EVENT_CYCLE             15  /* economic events and regional cards */
+#define REGULATION_CYCLE        20  /* government regulations */
+
+/* Anti-Speculation Act (Rule-LK 8) */
+#define MAX_UNDEVELOPED_PROPS    3   /* at most this many undeveloped properties */
+#define ANTI_SPEC_TRIGGER_ROUNDS 5   /* enforced after 5 consecutive rounds */
 
 /* Board Square Types */
 typedef enum

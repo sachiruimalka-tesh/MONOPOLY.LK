@@ -203,24 +203,3 @@ void initializeBoard(GameState game[])
     setProperty(game, 37, "Nuwara Eliya", DARK_BLUE, 10000, 1000, 5000, 3000, 12000);
     setProperty(game, 39, "Galle Face", DARK_BLUE, 12000, 1200, 6000, 3000, 12000);
 }
-
-void displayBoard(GameState game[])
-{
-    int i;
-
-    printf("\n========== BOARD ==========\n");
-
-    for(i = 0; i < BOARD_SIZE; i++)
-    {
-        printf("%2d  %-35s", i, game[0].board[i].name);
-
-        if(game[0].board[i].type == PROPERTY)
-        {
-            printf(" Price : %5d  Rent : %4d",
-                   game[0].board[i].property.purchasePrice,
-                   game[0].board[i].property.baseRent);
-        }
-
-        printf("\n");
-    }
-}

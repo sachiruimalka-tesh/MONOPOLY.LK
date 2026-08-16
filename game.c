@@ -99,11 +99,11 @@ int handleJail(GameState game[], int playerIndex)
 
     game[0].players[playerIndex].jailTurns++;
 
-    if(game[0].players[playerIndex].jailTurns >= 3)
+    if(game[0].players[playerIndex].jailTurns >= JAIL_MAX_TURNS)
     {
-        printf("%s has been in Jail for 3 turns - must pay bail of "
+        printf("%s has been in Jail for %d turns - must pay bail of "
                "LKR %d and is released.\n",
-               game[0].players[playerIndex].name, JAIL_BAIL);
+               game[0].players[playerIndex].name, JAIL_MAX_TURNS, JAIL_BAIL);
 
         payMoney(game, playerIndex, JAIL_BAIL);
 
@@ -113,9 +113,10 @@ int handleJail(GameState game[], int playerIndex)
         return 1;
     }
 
-    printf("%s remains in Jail (%d/3 turns).\n",
+    printf("%s remains in Jail (%d/%d turns).\n",
            game[0].players[playerIndex].name,
-           game[0].players[playerIndex].jailTurns);
+           game[0].players[playerIndex].jailTurns,
+           JAIL_MAX_TURNS);
 
     return 1;
 }
@@ -179,7 +180,7 @@ int playTurn(GameState game[], int playerIndex)
     else if(squareType == GO_TO_JAIL)
     {
         printf("%s is sent to Jail!\n", game[0].players[playerIndex].name);
-        game[0].players[playerIndex].position = 10;
+        game[0].players[playerIndex].position = JAIL_SQUARE;
         game[0].players[playerIndex].inJail = 1;
         game[0].players[playerIndex].jailTurns = 0;
     }
@@ -466,20 +467,20 @@ void playGame(GameState game[], int turnOrder[])
         decrementModifiers(game);
         enforceAntiSpeculation(game);
 
-        if(round % 10 == 0)
+        if(round % ECONOMY_CYCLE == 0)
         {
             triggerDisaster(game);
             applyInflation(game);
             reviewPropertyMarket(game, round);
         }
 
-        if(round % 15 == 0)
+        if(round % EVENT_CYCLE == 0)
         {
             triggerEconomicEvent(game);
             drawRegionalCard(game);
         }
 
-        if(round % 20 == 0)
+        if(round % REGULATION_CYCLE == 0)
         {
             triggerGovernmentRegulation(game);
         }
