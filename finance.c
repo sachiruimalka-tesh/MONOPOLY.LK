@@ -457,12 +457,20 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
         {
             /* can't build on a mortgaged, damaged or loan-locked
                property - those earn no rent and/or are pledged */
-            if(game[0].board[i].property.mortgaged)
+            if(game[0].board[i].property.mortgaged ||
+               game[0].board[i].property.damaged ||
+               game[0].board[i].property.loanLocked)
+            {
+                /* Rule 9: a blocked member that isn't fully developed
+                   means the group can't support a hotel yet */
+                if(!game[0].board[i].property.hotel &&
+                   game[0].board[i].property.houses < MAX_HOUSES)
+                {
+                    allFourHouses = 0;
+                }
+
                 continue;
-            if(game[0].board[i].property.damaged)
-                continue;
-            if(game[0].board[i].property.loanLocked)
-                continue;
+            }
 
             if(game[0].board[i].property.hotel)
                 continue;
@@ -480,6 +488,11 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
 
     if(targetIndex == -1)
         return 0;   /* every property already has a hotel */
+
+    /* Rule 9: never pile a 5th house onto one property just because a
+       group member is blocked from building */
+    if(game[0].board[targetIndex].property.houses >= MAX_HOUSES)
+        return 0;
 
     if(allFourHouses)
     {

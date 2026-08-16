@@ -52,6 +52,14 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
     {
         active[i] = !game[0].players[i].bankrupt;
 
+        /* Anti-Speculation Act (Rule-LK 8): the forced seller must
+           actually part with the property, so they never bid.  If the
+           seller were allowed to bid, they could win the auction back
+           and merely pay the bid to themselves (net-zero cost), which
+           defeats the forced sale. */
+        if(i == sellerIndex)
+            active[i] = 0;
+
         if(active[i])
             activeCount++;
     }

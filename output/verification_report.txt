@@ -1,0 +1,161 @@
+MONOPOLY.LK - PROGRAMMATIC VERIFICATION REPORT
+==============================================
+
+Date       : 2026-08-16
+Toolchain  : gcc (Rev6, Built by MSYS2 project) 16.1.0, Python 3.14.5
+Build      : gcc *.c -o monopoly            -> no warnings, no errors
+Run (S1)   : .\monopoly.exe > run.txt        -> fresh log (run.txt, 8,539 lines)
+Run (S2)   : .\monopoly.exe > run2.txt       -> fresh log (run2.txt, 7,620 lines)
+Analyzer   : verify_analysis.py (line-level replay of every economy transaction)
+
+----------------------------------------------------------------------
+1. METHODOLOGY
+----------------------------------------------------------------------
+verify_analysis.py replays every logged transaction from the UTF-16 game
+logs against a mirror of the board constants and the economy rules, then
+reports:
+  [BUG]     - an invariant violation or an unexplained ledger imbalance.
+  [REVIEW]  - a heuristic-level discrepancy that needs human triage.
+
+Findings were triaged against the source code and, where needed, by
+manually re-deriving ledgers with a calculator.
+
+Result summary on the two post-fix logs:
+  run.txt  -> 0 confirmed bugs
+  run2.txt -> 0 confirmed bugs
+
+Winner arithmetic is internally consistent in every game:
+  run.txt:   Cash 80,354 + Property 206,495 - Loans 170,931 = 115,918
+             (matches printed "Net Worth LKR 115,918")
+
+----------------------------------------------------------------------
+2. CONFIRMED BUGS (all fixed, with log evidence)
+----------------------------------------------------------------------
+[CONFIRMED BUG] Government Grant could be awarded to a bankrupt player.
+  File       : events.c, drawNationalEventCard, case 18
+  Evidence   : test.txt:7662-7663
+               "National Event Card" / "Government Grant : Conservative
+               Banker receives LKR 5,000."
+               Conservative Banker had been bankrupt since test.txt:3063
+               ("*** BANKRUPTCY *** / Conservative Banker ..."). The grant
+               was silently dropped because receiveMoney() no-ops for
+               bankrupt players.
+  Root cause : the recipient was chosen as rand() % MAX_PLAYERS with no
+               solvent check.
+  Fix        : scan forward from the random index to the first non-
+               bankrupt player (a live player drew the card, so one
+               always exists).
+  Verified    : run.txt grants at 2549 and 6143 both to Conservative
+               Banker, who was solvent until run.txt:7676; run2.txt grant
+               at 3821 to Risk Taker (eventual winner, solvent all game).
+
+[CONFIRMED BUG] Anti-Speculation Act forced sale could be re-bought by
+                the seller at net-zero cost, defeating the forced sale.
+  File       : auction.c, runAuction (active-bidder setup), lines 51-57
+  Evidence   : source-level only (latent). finance.c:840 invokes
+               runAuction(game, best, playerIndex) for the forced seller;
+               the seller remained in the active bidder set and could win
+               the auction, then pay the bid to themselves
+               (payMoney/receiveMoney cancel out, and the property never
+               leaves their portfolio). No Anti-Speculation card was drawn
+               in either log (0 occurrences), so no runtime evidence.
+  Fix        : the seller is excluded from the active bidder set.
+
+[CONFIRMED BUG] Luxury Property Tax was charged without printing any
+                amount, so a player's cash could drop with no record.
+  File       : events.c, drawNationalEventCard, case 3
+  Evidence   : source-level only (latent). events.c:344-345 computed
+               tax = currentMarketValue * 25 / 100 and paid it without any
+               printf. The card was not drawn in either analyzed log.
+  Fix        : prints the owning player, property and exact tax before
+               the payment: "%s pays LKR %d luxury tax on %s."
+
+[CONFIRMED BUG] Disaster repair cost was charged silently.
+  File       : insurance.c, tryAutoRepair
+  Evidence   : test.txt:3437 "Aggressive Investor repaired Nuwara Eliya.
+               It can collect rent again." with NO amount. This produced
+               three apparent cash imbalances that were all explained by
+               the same unprinted charge:
+                 test.txt:3601  Aggressive GO balance 17420 != 18210+2000
+                 test.txt:3963  Risk Taker GO balance 8454 != 8044+2000
+                 test.txt:6425  Risk Taker GO balance 38671 != 38388+2000
+               Manual ledger reconciliation of Aggressive Investor,
+               round 9 -> 10 (test.txt:3601):
+                 17,460 +100 -960 -370 +300 -300 +1,200 +280 +500 +2,000
+                 - 2,790 (silent repair = 30% of Nuwara Eliya value)
+                 = 17,420   -> matches the logged balance exactly.
+               The other two diffs are the same cause (1,590 and 1,717).
+  Fix        : prints "Repair Cost : LKR N." after the repair message.
+  Verified    : run2.txt:2916/3853/4533/5173 now print 502/903/1,863/193;
+               neither fresh log shows any GO-balance discrepancy.
+
+[CONFIRMED BUG] Rule 9 (even development) could be violated when a group
+                member was blocked from building.
+  File       : finance.c, developGroup
+  Evidence   : source-level only (latent). A mortgaged/damaged/loan-locked
+               member was skipped without clearing allFourHouses, so a
+               hotel could be raised while the blocked member had < 4
+               houses; additionally targetIndex could select a property
+               already at 4 houses, allowing a 5th house when the
+               low-house member was the blocked one.
+  Fix        : a blocked member with < MAX_HOUSES houses clears
+               allFourHouses; a guard prevents building past MAX_HOUSES
+               on the selected target.
+
+----------------------------------------------------------------------
+3. ANALYZER FALSE POSITIVES FIXED (not game bugs)
+----------------------------------------------------------------------
+[VERIFIED LEGITIMATE BEHAVIOR] "Auctioned X was already owned by player N"
+  The game strips a bankrupt player's ownership (liquidateBankruptAssets
+  calls stripOwnership on every square) before liquidation auctions. The
+  analyzer initially failed to mirror this, reporting 14 such items on
+  run.txt and 60 on test.txt. All were explained by bankruptcy /
+  foreclosure auctions. The analyzer now strips ownership and suppresses
+  the check during foreclose auctions.
+
+[VERIFIED LEGITIMATE BEHAVIOR] Income Tax / Community Development Fund
+  landings: the analyzer's generic "landed on X." handler shadowed the
+  tax handlers, so taxes were never deducted and cash drifted. Taxes are
+  now handled before the generic landing logic.
+
+[VERIFIED LEGITIMATE BEHAVIOR] "sold X to the Bank for LKR N (expected to
+  lose value)" (test.txt:733): the sale parser missed the trailing suffix
+  "(expected to lose value)", leaving ownership stale (e.g. Jaffna Town,
+  test.txt:904). The sale regex now accepts the suffix.
+
+[VERIFIED LEGITIMATE BEHAVIOR] Foreclosure "second loan" reports: the
+  analyzer's foreclose() never cleared loan_active, so a legitimate new
+  loan after a default was reported as a bug (test.txt:7060). foreclose()
+  now clears the loan state.
+
+----------------------------------------------------------------------
+4. REVIEW ITEMS (analyzer limits / log-ordering notes, NOT bugs)
+----------------------------------------------------------------------
+- "Net worth X vs recomputed Y (diff N)": residual differences are the
+  analyzer's value-model approximation (age-based depreciation, inflation
+  accumulation and modifier timings are modeled closely but not exactly).
+  Round summaries (properties / railways / utilities / houses / hotels /
+  loans counts) reconcile exactly; only value estimation diverges.
+- "No monetary evidence immediately before <player>'s bankruptcy": the
+  cause line ("Rent Paid : LKR N.") is printed AFTER the bankruptcy and
+  liquidation block because payMoney() runs before printf(). This is a
+  logging-ordering observation; the money flow itself is correct
+  (verified by ledger reconstruction, e.g. run.txt:546 auction overbid on
+  Kandy City leaving LKR 55).
+- Rent credited to the owner after the payer is declared bankrupt
+  (finance.c payRent: payMoney() then receiveMoney()): the owner is paid
+  even though the payer's cash hit 0. This is a design-review note; it was
+  not changed.
+
+----------------------------------------------------------------------
+5. CONCLUSION
+----------------------------------------------------------------------
+Two fresh games run against the fixed build both verify with
+0 confirmed bugs. All 5 confirmed bugs have been corrected in source:
+  events.c   (Government Grant solvent check, Luxury Property Tax output)
+  auction.c  (Anti-Speculation seller excluded from bidding)
+  insurance.c (repair cost now logged)
+  finance.c  (Rule 9 even-development enforcement)
+The remaining analyzer REVIEWs are documented model/order approximations,
+not game defects. The game's economy, winner arithmetic and round
+summaries are internally consistent.

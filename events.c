@@ -173,7 +173,15 @@ void executeEvent(GameState game[], int playerIndex)
         {
             int lucky;
 
+            /* Section 1.3: bankrupt players take no further part in the
+               game, so a grant must go to a solvent player.  Pick a
+               random starting point and scan forward to the first
+               solvent player - at least one must exist, because a live
+               player drew this card. */
             lucky = rand() % MAX_PLAYERS;
+
+            while(game[0].players[lucky].bankrupt)
+                lucky = (lucky + 1) % MAX_PLAYERS;
 
             printf("Government Grant : %s receives LKR 5,000.\n",
                    game[0].players[lucky].name);
@@ -334,6 +342,11 @@ void triggerGovernmentRegulation(GameState game[])
                    game[0].board[i].property.owner != -1)
                 {
                     tax = (currentMarketValue(game, i) * HOTEL_LUXURY_TAX_PERCENT) / 100;
+
+                    printf("%s pays LKR %d luxury tax on %s.\n",
+                           game[0].players[game[0].board[i].property.owner].name,
+                           tax, game[0].board[i].name);
+
                     payMoney(game, game[0].board[i].property.owner, tax);
                 }
             }

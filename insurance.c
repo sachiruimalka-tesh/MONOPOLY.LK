@@ -222,10 +222,19 @@ void tryAutoRepair(GameState game[], int playerIndex)
 
         if(game[0].players[playerIndex].cash >= game[0].board[i].property.repairCostOwed)
         {
-            payMoney(game, playerIndex, game[0].board[i].property.repairCostOwed);
+            int cost;
+            char costBuf[32];
+
+            cost = game[0].board[i].property.repairCostOwed;
+
+            formatLKR(cost, costBuf);
+
+            payMoney(game, playerIndex, cost);
 
             printf("\n%s repaired %s. It can collect rent again.\n",
                    game[0].players[playerIndex].name, game[0].board[i].name);
+
+            printf("Repair Cost : LKR %s.\n", costBuf);
 
             game[0].board[i].property.damaged = 0;
             game[0].board[i].property.repairCostOwed = 0;
