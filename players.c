@@ -398,9 +398,9 @@ int shouldRedeemMortgage(GameState game[], int playerIndex, int redeemCost)
     return (game[0].players[playerIndex].cash - redeemCost >= redeemCost);
 }
 
-/* Whether a player pays bail immediately instead of trying for
-   doubles. The assignment doesn't specify which strategy prefers
-   which option, so this is a reasonable assumption per strategy. */
+/* Whether a player pays bail after failing to roll doubles.
+   The assignment doesn't specify which strategy prefers which
+   option, so this is a reasonable assumption per strategy. */
 int shouldPayBail(GameState game[], int playerIndex)
 {
     int cash;
