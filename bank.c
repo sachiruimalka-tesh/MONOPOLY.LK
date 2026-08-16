@@ -153,22 +153,10 @@ void handleBankVisit(GameState game[], int playerIndex)
         if(wantsToRepayLoan(game, playerIndex))
         {
             int repayAmount;
-            int cash;
-            int loanAmount;
 
-            cash = game[0].players[playerIndex].cash;
-            loanAmount = game[0].players[playerIndex].loan.amount;
-
-            if(cash >= loanAmount)
-            {
-                /* can pay it off completely - repay in full */
-                repayAmount = loanAmount;
-            }
-            else
-            {
-                /* can't clear it all - repay half of what's available */
-                repayAmount = cash / 2;
-            }
+            /* every strategy's wantsToRepayLoan() only triggers once
+               cash can clear the whole loan, so always repay in full */
+            repayAmount = game[0].players[playerIndex].loan.amount;
 
             repayLoan(game, playerIndex, repayAmount);
             return;
@@ -350,7 +338,7 @@ void foreclose(GameState game[], int playerIndex)
         else if(game[0].board[i].type == UTILITY)
             game[0].players[playerIndex].utilitiesOwned--;
 
-        runAuction(game, i);
+        runAuction(game, i, -1);
     }
 
     game[0].players[playerIndex].loan.active = 0;

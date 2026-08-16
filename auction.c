@@ -26,8 +26,10 @@ int getAskingValue(GameState game[], int propIndex)
 
 /* Rule-LK 19-23: runs an auction among all solvent players. A
    player who declines to bid is out permanently, so the pool of
-   bidders can only shrink - guaranteeing the loop finishes. */
-void runAuction(GameState game[], int propIndex)
+   bidders can only shrink - guaranteeing the loop finishes.
+   sellerIndex >= 0 (Anti-Speculation Act forced sale) sends the
+   proceeds to that player; sellerIndex == -1 pays the Bank. */
+void runAuction(GameState game[], int propIndex, int sellerIndex)
 {
     int active[MAX_PLAYERS];
     int activeCount;
@@ -129,6 +131,9 @@ void runAuction(GameState game[], int propIndex)
     }
 
     payMoney(game, highBidder, currentBid);
+
+    if(sellerIndex >= 0)
+        receiveMoney(game, sellerIndex, currentBid);
 
     game[0].board[propIndex].property.owner = highBidder;
 

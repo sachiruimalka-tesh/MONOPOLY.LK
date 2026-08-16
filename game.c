@@ -51,17 +51,8 @@ int movePlayer(GameState game[], int playerIndex, int dice)
 
 /* Handles a player's turn while they're in jail.
    Return codes:
-     0 = wasn't in jail, or just paid bail - take a normal turn
-     1 = still stuck (or forced to pay bail this turn) - turn ends
-     2 = escaped via doubles, that move passed GO
-     3 = escaped via doubles, did not pass GO                 */
-/* Handles a player's turn while they're in jail.
-   Return codes:
-     0 = wasn't in jail, or just paid bail - take a normal turn
-     1 = still stuck (or forced to pay bail this turn) - turn ends
-     100 + dice = escaped via doubles, did not pass GO, dice is the
-                  roll used (this move IS the turn's move, no reroll)
-     200 + dice = escaped via doubles, and that move passed GO      */
+     0 = wasn't in jail - take a normal turn
+     1 = was in jail (released or not) - turn ends, no move this turn */
 int handleJail(GameState game[], int playerIndex)
 {
     int die1, die2;

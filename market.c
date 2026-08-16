@@ -210,18 +210,18 @@ void displayMarketConditions(GameState game[])
     /* Market Boom (Rule-LK 31) */
     for(i = 0; i < game[0].economy.modifierCount; i++)
     {
-        ActiveModifier *m = &game[0].economy.modifiers[i];
         char name[32];
 
-        if(m->source != SRC_BOOM || m->type != MOD_GROUP_VALUE)
+        if(game[0].economy.modifiers[i].source != SRC_BOOM ||
+           game[0].economy.modifiers[i].type != MOD_GROUP_VALUE)
             continue;
 
-        groupName((PropertyGroup)m->group, name);
+        groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
 
         printf("Market Boom\n");
         printf("-------------\n");
-        printf("%s (%+d%%)\n", name, m->percent - 100);
-        printf("Rounds Remaining : %d\n", m->roundsLeft);
+        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
+        printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
 
         shown = 1;
         break;
@@ -230,18 +230,18 @@ void displayMarketConditions(GameState game[])
     /* Market Decline (Rule-LK 32) */
     for(i = 0; i < game[0].economy.modifierCount; i++)
     {
-        ActiveModifier *m = &game[0].economy.modifiers[i];
         char name[32];
 
-        if(m->source != SRC_DECLINE || m->type != MOD_GROUP_VALUE)
+        if(game[0].economy.modifiers[i].source != SRC_DECLINE ||
+           game[0].economy.modifiers[i].type != MOD_GROUP_VALUE)
             continue;
 
-        groupName((PropertyGroup)m->group, name);
+        groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
 
         printf("Market Decline\n");
         printf("----------------\n");
-        printf("%s (%+d%%)\n", name, m->percent - 100);
-        printf("Rounds Remaining : %d\n", m->roundsLeft);
+        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
+        printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
 
         shown = 1;
         break;
@@ -255,18 +255,18 @@ void displayMarketConditions(GameState game[])
 
         for(i = 0; i < game[0].economy.modifierCount; i++)
         {
-            ActiveModifier *m = &game[0].economy.modifiers[i];
             char name[48];
 
-            if(m->source != SRC_REGIONAL)
+            if(game[0].economy.modifiers[i].source != SRC_REGIONAL)
                 continue;
 
-            switch(m->type)
+            switch(game[0].economy.modifiers[i].type)
             {
                 case MOD_GROUP_VALUE:
                 case MOD_GROUP_RENT:
-                    if(m->group >= 0 && m->group < NO_GROUP)
-                        groupName((PropertyGroup)m->group, name);
+                    if(game[0].economy.modifiers[i].group >= 0 &&
+                       game[0].economy.modifiers[i].group < NO_GROUP)
+                        groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
                     else
                         strcpy(name, "Unknown");
 
@@ -277,12 +277,12 @@ void displayMarketConditions(GameState game[])
                         first = 0;
                     }
 
-                    if(m->type == MOD_GROUP_VALUE)
-                        printf("%s (%+d%%)\n", name, m->percent - 100);
+                    if(game[0].economy.modifiers[i].type == MOD_GROUP_VALUE)
+                        printf("%s (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
                     else
-                        printf("%s rents (%+d%%)\n", name, m->percent - 100);
+                        printf("%s rents (%+d%%)\n", name, game[0].economy.modifiers[i].percent - 100);
 
-                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
                     shown = 1;
                     break;
 
@@ -295,8 +295,9 @@ void displayMarketConditions(GameState game[])
                     }
 
                     printf("%s (%+d%%)\n",
-                           game[0].board[m->index].name, m->percent - 100);
-                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                           game[0].board[game[0].economy.modifiers[i].index].name,
+                           game[0].economy.modifiers[i].percent - 100);
+                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
                     shown = 1;
                     break;
 
@@ -309,12 +310,12 @@ void displayMarketConditions(GameState game[])
                         first = 0;
                     }
 
-                    if(m->type == MOD_RAIL_RENT)
-                        printf("Railway rents (%+d%%)\n", m->percent - 100);
+                    if(game[0].economy.modifiers[i].type == MOD_RAIL_RENT)
+                        printf("Railway rents (%+d%%)\n", game[0].economy.modifiers[i].percent - 100);
                     else
-                        printf("Utility rents (%+d%%)\n", m->percent - 100);
+                        printf("Utility rents (%+d%%)\n", game[0].economy.modifiers[i].percent - 100);
 
-                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                    printf("Rounds Remaining : %d\n", game[0].economy.modifiers[i].roundsLeft);
                     shown = 1;
                     break;
 
@@ -336,16 +337,14 @@ void displayMarketConditions(GameState game[])
 
         for(i = 0; i < game[0].economy.modifierCount; i++)
         {
-            ActiveModifier *m = &game[0].economy.modifiers[i];
-
-            if(m->source != SRC_GENERAL)
+            if(game[0].economy.modifiers[i].source != SRC_GENERAL)
                 continue;
 
-            switch(m->type)
+            switch(game[0].economy.modifiers[i].type)
             {
                 case MOD_GROUP_VALUE:
                 case MOD_GROUP_RENT:
-                    groupName((PropertyGroup)m->group, name);
+                    groupName((PropertyGroup)game[0].economy.modifiers[i].group, name);
 
                     if(!otherShown)
                     {
@@ -354,12 +353,14 @@ void displayMarketConditions(GameState game[])
                         otherShown = 1;
                     }
 
-                    if(m->type == MOD_GROUP_VALUE)
+                    if(game[0].economy.modifiers[i].type == MOD_GROUP_VALUE)
                         printf("%s : values x%d%% (%d rounds remaining)\n",
-                               name, m->percent, m->roundsLeft);
+                               name, game[0].economy.modifiers[i].percent,
+                               game[0].economy.modifiers[i].roundsLeft);
                     else
                         printf("%s : rents x%d%% (%d rounds remaining)\n",
-                               name, m->percent, m->roundsLeft);
+                               name, game[0].economy.modifiers[i].percent,
+                               game[0].economy.modifiers[i].roundsLeft);
                     break;
 
                 case MOD_INDEX_VALUE:
@@ -371,7 +372,9 @@ void displayMarketConditions(GameState game[])
                     }
 
                     printf("%s : value x%d%% (%d rounds remaining)\n",
-                           game[0].board[m->index].name, m->percent, m->roundsLeft);
+                           game[0].board[game[0].economy.modifiers[i].index].name,
+                           game[0].economy.modifiers[i].percent,
+                           game[0].economy.modifiers[i].roundsLeft);
                     break;
 
                 case MOD_RAIL_VALUE:
@@ -383,7 +386,8 @@ void displayMarketConditions(GameState game[])
                     }
 
                     printf("Railway values : x%d%% (%d rounds remaining)\n",
-                           m->percent, m->roundsLeft);
+                           game[0].economy.modifiers[i].percent,
+                           game[0].economy.modifiers[i].roundsLeft);
                     break;
 
                 case MOD_RAIL_RENT:
@@ -395,12 +399,14 @@ void displayMarketConditions(GameState game[])
                         otherShown = 1;
                     }
 
-                    if(m->type == MOD_RAIL_RENT)
+                    if(game[0].economy.modifiers[i].type == MOD_RAIL_RENT)
                         printf("Railway rents : x%d%% (%d rounds remaining)\n",
-                               m->percent, m->roundsLeft);
+                               game[0].economy.modifiers[i].percent,
+                               game[0].economy.modifiers[i].roundsLeft);
                     else
                         printf("Utility rents : x%d%% (%d rounds remaining)\n",
-                               m->percent, m->roundsLeft);
+                               game[0].economy.modifiers[i].percent,
+                               game[0].economy.modifiers[i].roundsLeft);
                     break;
 
                 default:

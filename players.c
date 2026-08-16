@@ -78,6 +78,14 @@ int shouldBuyProperty(GameState game[], int playerIndex)
     position = game[0].players[playerIndex].position;
     price = game[0].board[position].property.purchasePrice;
 
+    /* match the price buyProperty() actually charges (Rule-LK 31/34) */
+    if(game[0].board[position].type == PROPERTY)
+    {
+        price = (currentMarketValue(game, position) *
+                 modifierMultiplier(game, MOD_PURCHASE_PRICE,
+                                    game[0].board[position].property.group, -1)) / 100;
+    }
+
     switch(game[0].players[playerIndex].strategy)
     {
         case AGGRESSIVE_INVESTOR:
@@ -347,7 +355,7 @@ int willingToBid(GameState game[], int playerIndex, int propIndex, int candidate
     if(game[0].players[playerIndex].cash < candidateBid)
         return 0;
 
-    marketValue = game[0].board[propIndex].property.purchasePrice;
+    marketValue = currentMarketValue(game, propIndex);
 
     switch(game[0].players[playerIndex].strategy)
     {

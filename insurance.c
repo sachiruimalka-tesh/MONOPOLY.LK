@@ -320,6 +320,9 @@ void triggerDisaster(GameState game[])
 
     game[0].board[chosen].property.repairCostOwed = cost - compensation;
 
+    if(game[0].board[chosen].property.repairCostOwed < 0)
+        game[0].board[chosen].property.repairCostOwed = 0;
+
     if(game[0].board[chosen].property.repairCostOwed > 0)
     {
         game[0].board[chosen].property.damaged = 1;

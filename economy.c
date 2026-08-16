@@ -43,19 +43,17 @@ void addSourcedModifier(GameState game[], ModifierType type, int group,
                         int index, int percent, int roundsLeft,
                         ModifierSource source)
 {
-    Economy *e = &game[0].economy;
-
-    if(e->modifierCount >= MAX_MODIFIERS)
+    if(game[0].economy.modifierCount >= MAX_MODIFIERS)
         return;
 
-    e->modifiers[e->modifierCount].type = type;
-    e->modifiers[e->modifierCount].group = group;
-    e->modifiers[e->modifierCount].index = index;
-    e->modifiers[e->modifierCount].percent = percent;
-    e->modifiers[e->modifierCount].roundsLeft = roundsLeft;
-    e->modifiers[e->modifierCount].source = source;
+    game[0].economy.modifiers[game[0].economy.modifierCount].type = type;
+    game[0].economy.modifiers[game[0].economy.modifierCount].group = group;
+    game[0].economy.modifiers[game[0].economy.modifierCount].index = index;
+    game[0].economy.modifiers[game[0].economy.modifierCount].percent = percent;
+    game[0].economy.modifiers[game[0].economy.modifierCount].roundsLeft = roundsLeft;
+    game[0].economy.modifiers[game[0].economy.modifierCount].source = source;
 
-    e->modifierCount++;
+    game[0].economy.modifierCount++;
 }
 
 /* Events, national cards and regulations use this - they are all
@@ -80,16 +78,16 @@ int modifierMultiplier(GameState game[], ModifierType type, int group, int index
 
     for(i = 0; i < game[0].economy.modifierCount; i++)
     {
-        ActiveModifier *m = &game[0].economy.modifiers[i];
+        if(game[0].economy.modifiers[i].type != type)
+            continue;
+        if(group != -1 && game[0].economy.modifiers[i].group != -1 &&
+           game[0].economy.modifiers[i].group != group)
+            continue;
+        if(index != -1 && game[0].economy.modifiers[i].index != -1 &&
+           game[0].economy.modifiers[i].index != index)
+            continue;
 
-        if(m->type != type)
-            continue;
-        if(group != -1 && m->group != -1 && m->group != group)
-            continue;
-        if(index != -1 && m->index != -1 && m->index != index)
-            continue;
-
-        mult = (mult * m->percent) / 100;
+        mult = (mult * game[0].economy.modifiers[i].percent) / 100;
     }
 
     return mult;
@@ -103,13 +101,11 @@ int isModifierActive(GameState game[], ModifierType type, int group, int index)
 
     for(i = 0; i < game[0].economy.modifierCount; i++)
     {
-        ActiveModifier *m = &game[0].economy.modifiers[i];
-
-        if(m->type != type)
+        if(game[0].economy.modifiers[i].type != type)
             continue;
-        if(group != -1 && m->group != group)
+        if(group != -1 && game[0].economy.modifiers[i].group != group)
             continue;
-        if(index != -1 && m->index != index)
+        if(index != -1 && game[0].economy.modifiers[i].index != index)
             continue;
 
         return 1;

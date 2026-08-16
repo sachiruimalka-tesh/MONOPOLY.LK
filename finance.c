@@ -83,7 +83,7 @@ void liquidateBankruptAssets(GameState game[], int playerIndex)
         else if(game[0].board[i].type == UTILITY)
             game[0].players[playerIndex].utilitiesOwned--;
 
-        runAuction(game, i);
+        runAuction(game, i, -1);
     }
 }
 
@@ -389,6 +389,15 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
     {
         if(game[0].board[i].type == PROPERTY && game[0].board[i].property.group == group)
         {
+            /* can't build on a mortgaged, damaged or loan-locked
+               property - those earn no rent and/or are pledged */
+            if(game[0].board[i].property.mortgaged)
+                continue;
+            if(game[0].board[i].property.damaged)
+                continue;
+            if(game[0].board[i].property.loanLocked)
+                continue;
+
             if(game[0].board[i].property.hotel)
                 continue;
 
@@ -786,7 +795,7 @@ void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex)
 
     game[0].players[playerIndex].propertiesOwned--;
 
-    runAuction(game, best);
+    runAuction(game, best, playerIndex);
 }
 
 /* Rule-LK 8 (Anti-Speculation Act): once active, a player may keep
@@ -888,7 +897,7 @@ void buyProperty(GameState game[], int playerIndex)
     /* Rule 5: if they don't buy directly, it goes to auction */
     if(!wantsToBuy)
     {
-        runAuction(game, pos);
+        runAuction(game, pos, -1);
         return;
     }
 

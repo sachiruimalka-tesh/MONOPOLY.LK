@@ -171,6 +171,6 @@ void renovateStructuralDamage(GameState game[], int playerIndex);
 /* auction.c */
 
 int getAskingValue(GameState game[], int propIndex);
-void runAuction(GameState game[], int propIndex);
+void runAuction(GameState game[], int propIndex, int sellerIndex);
 
 #endif
