@@ -320,8 +320,10 @@ int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group)
 
 /* Builds one house (or upgrades to a hotel) somewhere in this
    colour group. Always adds to whichever property currently has the
-   fewest houses, so development stays even (Rule 9). */
-void developGroup(GameState game[], int playerIndex, PropertyGroup group)
+   fewest houses, so development stays even (Rule 9). Returns 1 if
+   something was actually built, 0 if not - constructBuildings()
+   uses this to keep building repeatedly in the same turn. */
+int developGroup(GameState game[], int playerIndex, PropertyGroup group)
 {
     int i;
     int minHouses;
@@ -329,7 +331,7 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
     int allFourHouses;
 
     if(!ownsMonopoly(game, playerIndex, group))
-        return;
+        return 0;
 
     minHouses = MAX_HOUSES + 1;
     targetIndex = -1;
@@ -354,7 +356,7 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
     }
 
     if(targetIndex == -1)
-        return;   /* every property already has a hotel */
+        return 0;   /* every property already has a hotel */
 
     if(allFourHouses)
     {
@@ -364,10 +366,10 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
                      game[0].economy.constructionCostMultiplierPercent) / 100;
 
         if(!shouldConstruct(game, playerIndex, hotelCost))
-            return;
+            return 0;
 
         if(game[0].players[playerIndex].cash < hotelCost)
-            return;
+            return 0;
 
         payMoney(game, playerIndex, hotelCost);
 
@@ -380,7 +382,7 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
 
         printf("Construction Cost : LKR %d\n", hotelCost);
 
-        return;
+        return 1;
     }
 
     {
@@ -390,10 +392,10 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
                      game[0].economy.constructionCostMultiplierPercent) / 100;
 
         if(!shouldConstruct(game, playerIndex, houseCost))
-            return;
+            return 0;
 
         if(game[0].players[playerIndex].cash < houseCost)
-            return;
+            return 0;
 
         payMoney(game, playerIndex, houseCost);
 
@@ -404,19 +406,35 @@ void developGroup(GameState game[], int playerIndex, PropertyGroup group)
                game[0].board[targetIndex].name);
 
         printf("Construction Cost : LKR %d\n", houseCost);
+
+        return 1;
     }
 }
 
+/* Keeps building on each colour group, one step at a time, until
+   either nothing more can be built there this turn (unaffordable,
+   the strategy doesn't want to, or the group is fully built up) -
+   this is what lets a strategy build "the maximum possible number
+   of houses immediately" in a single turn instead of one per turn. */
 void constructBuildings(GameState game[], int playerIndex)
 {
     PropertyGroup group;
+    int builtSomething;
+    int safetyLimit;
 
     if(game[0].economy.constructionSuspendedRoundsLeft > 0)
         return;
 
     for(group = BROWN; group < NO_GROUP; group++)
     {
-        developGroup(game, playerIndex, group);
+        safetyLimit = 0;
+
+        do
+        {
+            builtSomething = developGroup(game, playerIndex, group);
+            safetyLimit++;
+        }
+        while(builtSomething && safetyLimit < 20);
     }
 }
 
@@ -622,6 +640,15 @@ void payRent(GameState game[], int playerIndex, int diceValue)
     if(game[0].board[pos].type == PROPERTY && game[0].board[pos].property.damaged)
     {
         printf("\n%s landed on %s, but it is damaged and collects no rent.\n",
+               game[0].players[playerIndex].name, game[0].board[pos].name);
+        return;
+    }
+
+    if(game[0].board[pos].type == PROPERTY &&
+       game[0].board[pos].property.lostIncomeRoundsLeft > 0)
+    {
+        printf("\n%s landed on %s, but it earns no rent right now "
+               "(Business Interruption).\n",
                game[0].players[playerIndex].name, game[0].board[pos].name);
         return;
     }

@@ -53,9 +53,17 @@ int movePlayer(GameState game[], int playerIndex, int dice)
      1 = still stuck (or forced to pay bail this turn) - turn ends
      2 = escaped via doubles, that move passed GO
      3 = escaped via doubles, did not pass GO                 */
+/* Handles a player's turn while they're in jail.
+   Return codes:
+     0 = wasn't in jail, or just paid bail - take a normal turn
+     1 = still stuck (or forced to pay bail this turn) - turn ends
+     100 + dice = escaped via doubles, did not pass GO, dice is the
+                  roll used (this move IS the turn's move, no reroll)
+     200 + dice = escaped via doubles, and that move passed GO      */
 int handleJail(GameState game[], int playerIndex)
 {
     int die1, die2;
+    int total;
     int passedGo;
 
     if(!game[0].players[playerIndex].inJail)
@@ -79,6 +87,7 @@ int handleJail(GameState game[], int playerIndex)
 
     die1 = rand() % 6 + 1;
     die2 = rand() % 6 + 1;
+    total = die1 + die2;
 
     printf("%s is in Jail. Rolled %d and %d.\n",
            game[0].players[playerIndex].name, die1, die2);
@@ -91,12 +100,14 @@ int handleJail(GameState game[], int playerIndex)
         game[0].players[playerIndex].inJail = 0;
         game[0].players[playerIndex].jailTurns = 0;
 
-        passedGo = movePlayer(game, playerIndex, die1 + die2);
+        /* Rule 13: this doubles roll IS the player's move for the
+           turn - they do not also get a separate normal turn. */
+        passedGo = movePlayer(game, playerIndex, total);
 
         if(passedGo)
-            return 2;
+            return 200 + total;
 
-        return 3;
+        return 100 + total;
     }
 
     game[0].players[playerIndex].jailTurns++;
@@ -148,17 +159,32 @@ int playTurn(GameState game[], int playerIndex)
     jailResult = handleJail(game, playerIndex);
 
     if(jailResult == 1)
-        return 0;
+        return 0;   /* still stuck, or just paid forced bail - no move */
 
-    if(jailResult == 2)
-        passedGo = 1;
+    if(jailResult >= 100)
+    {
+        /* Escaped via doubles - that move already happened inside
+           handleJail(). Do not roll or move again this turn.       */
+        if(jailResult >= 200)
+        {
+            passedGo = 1;
+            dice = jailResult - 200;
+        }
+        else
+        {
+            dice = jailResult - 100;
+        }
+    }
+    else
+    {
+        /* jailResult == 0: wasn't in jail, or just paid bail
+           voluntarily - take a completely normal turn.             */
+        dice = rollDice();
+        printf("%s rolled %d.\n", game[0].players[playerIndex].name, dice);
 
-    /* Step 2 & 3: roll and move */
-    dice = rollDice();
-    printf("%s rolled %d.\n", game[0].players[playerIndex].name, dice);
-
-    if(movePlayer(game, playerIndex, dice))
-        passedGo = 1;
+        if(movePlayer(game, playerIndex, dice))
+            passedGo = 1;
+    }
 
     /* Step 4: resolve landing action */
     pos = game[0].players[playerIndex].position;

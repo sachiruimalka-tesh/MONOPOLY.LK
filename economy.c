@@ -121,11 +121,15 @@ int currentMarketValue(GameState game[], int propIndex)
 
 /* Rule-LK 15, 16: properties get older every round, and lose value
    past age 50. */
+/* Rule-LK 15, 16: properties get older every round, and lose value
+   past age 50. Prints the required "Property Depreciation" message
+   (Section 5) whenever a property's depreciation actually changes. */
 void ageProperties(GameState game[])
 {
     int i;
     int roundsOver50;
     int newDepreciation;
+    int oldDepreciation;
 
     for(i = 0; i < BOARD_SIZE; i++)
     {
@@ -136,6 +140,8 @@ void ageProperties(GameState game[])
 
         if(game[0].board[i].property.age > 50)
         {
+            oldDepreciation = game[0].board[i].property.depreciation;
+
             roundsOver50 = game[0].board[i].property.age - 50;
             newDepreciation = roundsOver50 / 5;
 
@@ -143,6 +149,14 @@ void ageProperties(GameState game[])
                 newDepreciation = 30;
 
             game[0].board[i].property.depreciation = newDepreciation;
+
+            if(newDepreciation != oldDepreciation)
+            {
+                printf("\nProperty Depreciation\n");
+                printf("Property\n%s\n", game[0].board[i].name);
+                printf("has depreciated by %d%%.\n", newDepreciation);
+                printf("Current Value\nLKR %d\n", currentMarketValue(game, i));
+            }
         }
     }
 }
@@ -205,6 +219,12 @@ void ageBuildings(GameState game[])
     {
         if(game[0].board[i].type != PROPERTY)
             continue;
+
+        /* Business Interruption's 5-round lost-income countdown runs
+           even if the property isn't currently developed with houses
+           (it still has a hotel that just isn't earning anything). */
+        if(game[0].board[i].property.lostIncomeRoundsLeft > 0)
+            game[0].board[i].property.lostIncomeRoundsLeft--;
 
         if(game[0].board[i].property.houses == 0 && !game[0].board[i].property.hotel)
             continue;

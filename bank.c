@@ -125,6 +125,10 @@ void repayLoan(GameState game[], int playerIndex, int amount)
     }
 }
 
+/* Rule-LK 5: landing on the Bank offers repaying part, repaying in
+   full, or (if no loan yet) obtaining one. A player who can afford
+   to clear the whole loan does so; otherwise they repay what they
+   comfortably can. */
 void handleBankVisit(GameState game[], int playerIndex)
 {
     printf("\n%s landed on Bank of Ceylon.\n", game[0].players[playerIndex].name);
@@ -134,11 +138,22 @@ void handleBankVisit(GameState game[], int playerIndex)
         if(wantsToRepayLoan(game, playerIndex))
         {
             int repayAmount;
+            int cash;
+            int loanAmount;
 
-            repayAmount = game[0].players[playerIndex].cash / 2;
+            cash = game[0].players[playerIndex].cash;
+            loanAmount = game[0].players[playerIndex].loan.amount;
 
-            if(repayAmount > game[0].players[playerIndex].loan.amount)
-                repayAmount = game[0].players[playerIndex].loan.amount;
+            if(cash >= loanAmount)
+            {
+                /* can pay it off completely - repay in full */
+                repayAmount = loanAmount;
+            }
+            else
+            {
+                /* can't clear it all - repay half of what's available */
+                repayAmount = cash / 2;
+            }
 
             repayLoan(game, playerIndex, repayAmount);
         }

@@ -69,7 +69,7 @@ int countUndevelopedProperties(GameState game[], int playerIndex);
 
 int groupSize(GameState game[], PropertyGroup group);
 int ownsMonopoly(GameState game[], int playerIndex, PropertyGroup group);
-void developGroup(GameState game[], int playerIndex, PropertyGroup group);
+int developGroup(GameState game[], int playerIndex, PropertyGroup group);
 void constructBuildings(GameState game[], int playerIndex);
 
 /* game.c */

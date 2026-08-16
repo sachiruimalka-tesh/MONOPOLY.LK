@@ -39,6 +39,7 @@ void setProperty(GameState game[],
 
     game[0].board[index].property.damaged = 0;
     game[0].board[index].property.repairCostOwed = 0;
+    game[0].board[index].property.lostIncomeRoundsLeft = 0;
 
     game[0].board[index].property.age = 0;
     game[0].board[index].property.depreciation = 0;
@@ -73,6 +74,7 @@ void setRailway(GameState game[], int index, char name[], int purchasePrice)
     game[0].board[index].property.insuranceRoundsLeft = 0;
     game[0].board[index].property.damaged = 0;
     game[0].board[index].property.repairCostOwed = 0;
+    game[0].board[index].property.lostIncomeRoundsLeft = 0;
     game[0].board[index].property.age = 0;
     game[0].board[index].property.depreciation = 0;
     game[0].board[index].property.condition = 100;
@@ -106,6 +108,7 @@ void setUtility(GameState game[], int index, char name[], int purchasePrice)
     game[0].board[index].property.insuranceRoundsLeft = 0;
     game[0].board[index].property.damaged = 0;
     game[0].board[index].property.repairCostOwed = 0;
+    game[0].board[index].property.lostIncomeRoundsLeft = 0;
     game[0].board[index].property.age = 0;
     game[0].board[index].property.depreciation = 0;
     game[0].board[index].property.condition = 100;

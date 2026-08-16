@@ -206,6 +206,16 @@ void triggerDisaster(GameState game[])
 
         printf("Insurance Claim Approved.\n");
         printf("Compensation Paid : LKR %d\n", compensation);
+
+        /* Business Interruption also covers 5 rounds of lost rental
+           income - the repair cost is fully paid above, but the
+           property still earns nothing for 5 rounds. */
+        if(game[0].board[chosen].property.insurance == BUSINESS_INTERRUPTION)
+        {
+            game[0].board[chosen].property.lostIncomeRoundsLeft = 5;
+            printf("%s will earn no rent for the next 5 rounds "
+                   "(Business Interruption).\n", game[0].board[chosen].name);
+        }
     }
     else
     {

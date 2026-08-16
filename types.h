@@ -120,6 +120,7 @@ typedef struct
 
     int damaged;          /* disaster damage - no rent until repaired */
     int repairCostOwed;
+    int lostIncomeRoundsLeft;   /* Business Interruption: no rent for 5 rounds */
 
     int age;
     int depreciation;
