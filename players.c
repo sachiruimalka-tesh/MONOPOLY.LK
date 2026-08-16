@@ -114,7 +114,7 @@ int shouldBuyProperty(GameState game[], int playerIndex)
 }
 
 /* Decides whether a player is willing to spend on a house/hotel. */
-int shouldConstruct(GameState game[], int playerIndex, int cost)
+int shouldConstruct(GameState game[], int playerIndex, int cost, int isHotel)
 {
     int cash;
 
@@ -126,8 +126,9 @@ int shouldConstruct(GameState game[], int playerIndex, int cost)
             return (cash - cost >= 1000);
 
         case CONSERVATIVE_BANKER:
-            /* never builds hotels while a loan is active */
-            if(game[0].players[playerIndex].loan.active)
+            /* never builds hotels while a loan is active - houses are
+               still fine (Section 3.2) */
+            if(game[0].players[playerIndex].loan.active && isHotel)
                 return 0;
             return (cash - cost >= cash / 2);
 

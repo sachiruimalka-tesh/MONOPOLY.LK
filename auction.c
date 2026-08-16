@@ -3,22 +3,21 @@
 #include "functions.h"
 
 /* Rule-LK 19: opening bid is 50% of market value.  A market decline
-   lowers the starting price by 25% (Rule-LK 32/34) - group-scoped. */
+   lowers the starting price by 25% (Rule-LK 32/34) - group-scoped.
+   Railways and utilities use currentMarketValue too, so their value
+   modifiers (Port Expansion, Water Shortage, ...) apply the same way
+   they do for colour-group properties. */
 int getAskingValue(GameState game[], int propIndex)
 {
     int value;
     int group;
 
+    value = currentMarketValue(game, propIndex);
+
+    group = -1;
+
     if(game[0].board[propIndex].type == PROPERTY)
-    {
-        value = currentMarketValue(game, propIndex);
         group = game[0].board[propIndex].property.group;
-    }
-    else
-    {
-        value = game[0].board[propIndex].property.purchasePrice;
-        group = -1;
-    }
 
     value = (value * modifierMultiplier(game, MOD_AUCTION_PRICE, group, -1)) / 100;
 
@@ -37,12 +36,15 @@ void runAuction(GameState game[], int propIndex)
     int highBidder;
     int candidateBid;
     int safetyRounds;
+    char moneyBuf[32];
 
     printf("\n*** AUCTION ***\n");
     printf("Property : %s\n", game[0].board[propIndex].name);
 
     currentBid = getAskingValue(game, propIndex) / 2;
-    printf("Opening Bid : LKR %d\n", currentBid);
+
+    formatLKR(currentBid, moneyBuf);
+    printf("Opening Bid : LKR %s\n", moneyBuf);
 
     highBidder = -1;
     activeCount = 0;
@@ -74,7 +76,8 @@ void runAuction(GameState game[], int propIndex)
                 currentBid = candidateBid;
                 highBidder = i;
 
-                printf("%s bids LKR %d.\n", game[0].players[i].name, currentBid);
+                formatLKR(currentBid, moneyBuf);
+                printf("%s bids LKR %s.\n", game[0].players[i].name, moneyBuf);
             }
             else
             {
@@ -136,6 +139,6 @@ void runAuction(GameState game[], int propIndex)
     else if(game[0].board[propIndex].type == UTILITY)
         game[0].players[highBidder].utilitiesOwned++;
 
-    printf("%s wins the auction for LKR %d.\n",
-           game[0].players[highBidder].name, currentBid);
+    printf("%s wins the auction for LKR %s.\n",
+           game[0].players[highBidder].name, moneyBuf);
 }

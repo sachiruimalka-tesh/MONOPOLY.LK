@@ -88,6 +88,7 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
     int value;
     int premium;
     int premiumPercent;
+    char premiumBuf[32];
 
     if(type == BASIC_INSURANCE)
         premiumPercent = 5;
@@ -116,7 +117,8 @@ void purchaseInsurance(GameState game[], int playerIndex, int propIndex, Insuran
            game[0].players[playerIndex].name,
            game[0].board[propIndex].name);
 
-    printf("Premium : LKR %d\n", premium);
+    formatLKR(premium, premiumBuf);
+    printf("Premium : LKR %s.\n", premiumBuf);
 }
 
 /* Any owned property can be insured (Section 2.8) - no longer just

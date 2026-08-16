@@ -32,7 +32,7 @@ void initializePlayers(GameState game[]);
 void displayPlayers(GameState game[]);
 
 int shouldBuyProperty(GameState game[], int playerIndex);
-int shouldConstruct(GameState game[], int playerIndex, int cost);
+int shouldConstruct(GameState game[], int playerIndex, int cost, int isHotel);
 int wantsLoan(GameState game[], int playerIndex);
 int wantsToRepayLoan(GameState game[], int playerIndex);
 int wantsIncreaseLoan(GameState game[], int playerIndex);
@@ -72,6 +72,7 @@ int countUndevelopedProperties(GameState game[], int playerIndex);
 
 int wouldCompleteMonopoly(GameState game[], int playerIndex, int pos);
 void sellLowValueProperty(GameState game[], int playerIndex);
+void sellDecliningProperties(GameState game[], int playerIndex);
 void enforceAntiSpeculation(GameState game[]);
 void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex);
 

@@ -23,11 +23,10 @@ int movePlayer(GameState game[], int playerIndex, int dice)
     oldPosition = game[0].players[playerIndex].position;
     game[0].players[playerIndex].position = (oldPosition + dice) % BOARD_SIZE;
 
-    printf("%s moves from Square %d to Square %d (%s)\n",
+    printf("%s moves from Square %d to Square %d.\n",
            game[0].players[playerIndex].name,
            oldPosition,
-           game[0].players[playerIndex].position,
-           game[0].board[game[0].players[playerIndex].position].name);
+           game[0].players[playerIndex].position);
 
     passedGo = 0;
 
@@ -226,6 +225,10 @@ int playTurn(GameState game[], int playerIndex)
     /* Step 6: build if eligible */
     constructBuildings(game, playerIndex);
 
+    /* Section 3.4: the Opportunistic Trader first dumps any property
+       that economic events have marked for a decline. */
+    sellDecliningProperties(game, playerIndex);
+
     /* Step 7: mortgage or redeem if the player's situation calls for it */
     handleMortgageDecisions(game, playerIndex);
 
@@ -378,9 +381,16 @@ void displayRoundSummary(GameState game[], int round)
 
     for(i = 0; i < MAX_PLAYERS; i++)
     {
+        char cashBuf[32];
+        char netBuf[32];
+        char loanBuf[32];
+
+        formatLKR(game[0].players[i].cash, cashBuf);
+        formatLKR(calculateNetWorth(game, i), netBuf);
+
         printf("%s\n", game[0].players[i].name);
-        printf("Cash : LKR %d\n", game[0].players[i].cash);
-        printf("Net Worth : LKR %d\n", calculateNetWorth(game, i));
+        printf("Cash : LKR %s\n", cashBuf);
+        printf("Net Worth : LKR %s\n", netBuf);
         printf("Properties : %d\n", game[0].players[i].propertiesOwned);
         printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
         printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
@@ -388,9 +398,14 @@ void displayRoundSummary(GameState game[], int round)
         printf("Hotels     : %d\n", countHotels(game, i));
 
         if(game[0].players[i].loan.active)
-            printf("Outstanding Loan : LKR %d\n", game[0].players[i].loan.amount);
+        {
+            formatLKR(game[0].players[i].loan.amount, loanBuf);
+            printf("Outstanding Loan : LKR %s\n", loanBuf);
+        }
         else
+        {
             printf("Outstanding Loan : None\n");
+        }
 
         if(game[0].players[i].bankrupt)
             printf("Status : BANKRUPT\n");
@@ -569,6 +584,10 @@ void displayFinalResults(GameState game[])
 {
     int winner;
     int i;
+    char cashBuf[32];
+    char propBuf[32];
+    char loanBuf[32];
+    char netBuf[32];
 
     winner = determineWinner(game);
 
@@ -577,17 +596,26 @@ void displayFinalResults(GameState game[])
     printf("=============================================\n");
 
     printf("Winner\n%s\n", game[0].players[winner].name);
-    printf("Total Cash\nLKR %d\n", game[0].players[winner].cash);
 
-    printf("Total Property Value\nLKR %d\n",
-           calculatePropertyValue(game, winner) + calculateBuildingValue(game, winner));
+    formatLKR(game[0].players[winner].cash, cashBuf);
+    printf("Total Cash\nLKR %s\n", cashBuf);
+
+    formatLKR(calculatePropertyValue(game, winner) +
+              calculateBuildingValue(game, winner), propBuf);
+    printf("Total Property Value\nLKR %s\n", propBuf);
 
     if(game[0].players[winner].loan.active)
-        printf("Outstanding Loans\nLKR %d\n", game[0].players[winner].loan.amount);
+    {
+        formatLKR(game[0].players[winner].loan.amount, loanBuf);
+        printf("Outstanding Loans\nLKR %s\n", loanBuf);
+    }
     else
+    {
         printf("Outstanding Loans\nNone\n");
+    }
 
-    printf("Net Worth\nLKR %d\n", calculateNetWorth(game, winner));
+    formatLKR(calculateNetWorth(game, winner), netBuf);
+    printf("Net Worth\nLKR %s\n", netBuf);
     printf("=============================================\n");
 
     printf("\nFinal Standings (all players)\n");
@@ -608,6 +636,7 @@ void displayFinalResults(GameState game[])
 void startGame(GameState game[])
 {
     int turnOrder[MAX_PLAYERS];
+    char moneyBuffer[32];
 
     srand((unsigned)time(NULL));
 
@@ -620,7 +649,9 @@ void startGame(GameState game[])
     printf("Player 2 : %s\n", game[0].players[1].name);
     printf("Player 3 : %s\n", game[0].players[2].name);
     printf("Player 4 : %s\n", game[0].players[3].name);
-    printf("\nEach player begins with LKR %d.\n", START_MONEY);
+
+    formatLKR(START_MONEY, moneyBuffer);
+    printf("\nEach player begins with LKR %s.\n", moneyBuffer);
 
     determineTurnOrder(game, turnOrder);
 

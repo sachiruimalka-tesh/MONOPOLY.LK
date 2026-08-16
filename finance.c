@@ -409,6 +409,7 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
     if(allFourHouses)
     {
         int hotelCost;
+        char costBuf[32];
 
         /* Rule-LK 13/31/34: base hotel cost is permanent; temporary
            events only add modifiers on top. A market boom's +10%
@@ -417,7 +418,7 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
         hotelCost = (game[0].board[targetIndex].property.hotelCost *
                      modifierMultiplier(game, MOD_CONSTRUCTION, group, -1)) / 100;
 
-        if(!shouldConstruct(game, playerIndex, hotelCost))
+        if(!shouldConstruct(game, playerIndex, hotelCost, 1))
             return 0;
 
         if(game[0].players[playerIndex].cash < hotelCost)
@@ -432,18 +433,20 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
                game[0].players[playerIndex].name,
                game[0].board[targetIndex].name);
 
-        printf("Construction Cost : LKR %d\n", hotelCost);
+        formatLKR(hotelCost, costBuf);
+        printf("Construction Cost : LKR %s.\n", costBuf);
 
         return 1;
     }
 
     {
         int houseCost;
+        char costBuf[32];
 
         houseCost = (game[0].board[targetIndex].property.houseCost *
                      modifierMultiplier(game, MOD_CONSTRUCTION, group, -1)) / 100;
 
-        if(!shouldConstruct(game, playerIndex, houseCost))
+        if(!shouldConstruct(game, playerIndex, houseCost, 0))
             return 0;
 
         if(game[0].players[playerIndex].cash < houseCost)
@@ -457,7 +460,8 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
                game[0].players[playerIndex].name,
                game[0].board[targetIndex].name);
 
-        printf("Construction Cost : LKR %d\n", houseCost);
+        formatLKR(houseCost, costBuf);
+        printf("Construction Cost : LKR %s.\n", costBuf);
 
         return 1;
     }
@@ -670,6 +674,68 @@ void sellLowValueProperty(GameState game[], int playerIndex)
            bestValue);
 }
 
+/* Section 3.4: the Opportunistic Trader sells properties expected to
+   lose value following economic events - any undeveloped property in
+   a group that is currently declining, under a global downturn, or
+   carrying its own negative value modifier. Loan-locked collateral
+   (Rule-LK 3) is never sold. */
+void sellDecliningProperties(GameState game[], int playerIndex)
+{
+    int i;
+    int globalMult;
+
+    if(game[0].players[playerIndex].strategy != OPPORTUNISTIC_TRADER)
+        return;
+
+    if(game[0].players[playerIndex].bankrupt)
+        return;
+
+    globalMult = modifierMultiplier(game, MOD_VALUE_GLOBAL, -1, -1);
+
+    for(i = 0; i < BOARD_SIZE; i++)
+    {
+        int groupMult;
+        int indexMult;
+        int value;
+
+        if(game[0].board[i].type != PROPERTY)
+            continue;
+
+        if(game[0].board[i].property.owner != playerIndex)
+            continue;
+
+        if(game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel)
+            continue;
+
+        if(game[0].board[i].property.loanLocked)
+            continue;
+
+        groupMult = modifierMultiplier(game, MOD_GROUP_VALUE,
+                                       game[0].board[i].property.group, -1);
+        indexMult = modifierMultiplier(game, MOD_INDEX_VALUE, -1, i);
+
+        if(globalMult >= 100 && groupMult >= 100 && indexMult >= 100)
+            continue;
+
+        value = currentMarketValue(game, i);
+
+        receiveMoney(game, playerIndex, value);
+
+        game[0].board[i].property.owner = -1;
+        game[0].board[i].property.mortgaged = 0;
+        game[0].board[i].property.loanLocked = 0;
+        game[0].board[i].property.insurance = NO_INSURANCE;
+
+        game[0].players[playerIndex].propertiesOwned--;
+
+        printf("\n%s sold %s to the Bank for LKR %d "
+               "(expected to lose value).\n",
+               game[0].players[playerIndex].name,
+               game[0].board[i].name,
+               value);
+    }
+}
+
 /* Releases the player's lowest-value undeveloped property and puts
    it up for auction (Anti-Speculation Act enforcement). */
 void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex)
@@ -788,6 +854,8 @@ void buyProperty(GameState game[], int playerIndex)
     int pos;
     int price;
     int wantsToBuy;
+    char priceBuf[32];
+    char balanceBuf[32];
 
     pos = game[0].players[playerIndex].position;
 
@@ -835,13 +903,16 @@ void buyProperty(GameState game[], int playerIndex)
     else if(game[0].board[pos].type == UTILITY)
         game[0].players[playerIndex].utilitiesOwned++;
 
-    printf("\n%s purchased %s for LKR %d\n",
+    formatLKR(price, priceBuf);
+    formatLKR(game[0].players[playerIndex].cash, balanceBuf);
+
+    printf("\n%s purchased %s for LKR %s.\n",
            game[0].players[playerIndex].name,
            game[0].board[pos].name,
-           price);
+           priceBuf);
 
-    printf("Remaining Balance : LKR %d\n",
-           game[0].players[playerIndex].cash);
+    printf("Remaining Balance : LKR %s.\n",
+           balanceBuf);
 }
 
 void payRent(GameState game[], int playerIndex, int diceValue)
@@ -849,6 +920,7 @@ void payRent(GameState game[], int playerIndex, int diceValue)
     int pos;
     int owner;
     int rent;
+    char rentBuf[32];
 
     pos = game[0].players[playerIndex].position;
 
@@ -908,10 +980,13 @@ void payRent(GameState game[], int playerIndex, int diceValue)
     payMoney(game, playerIndex, rent);
     receiveMoney(game, owner, rent);
 
-    printf("\n%s landed on %s (owned by %s)\n",
-           game[0].players[playerIndex].name,
-           game[0].board[pos].name,
-           game[0].players[owner].name);
+    formatLKR(rent, rentBuf);
 
-    printf("Rent Paid : LKR %d\n", rent);
+    printf("\n%s landed on %s.\n",
+           game[0].players[playerIndex].name,
+           game[0].board[pos].name);
+
+    printf("Rent Paid : LKR %s.\n", rentBuf);
+
+    printf("Owner : %s.\n", game[0].players[owner].name);
 }

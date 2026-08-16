@@ -54,6 +54,7 @@ void obtainLoan(GameState game[], int playerIndex)
 {
     int i;
     int maxLoan;
+    char loanBuf[32];
 
     if(game[0].players[playerIndex].loan.active)
         return;   /* only one active loan allowed at a time */
@@ -71,7 +72,9 @@ void obtainLoan(GameState game[], int playerIndex)
     receiveMoney(game, playerIndex, maxLoan);
 
     printf("\n%s obtained a secured loan.\n", game[0].players[playerIndex].name);
-    printf("Loan Amount : LKR %d\n", maxLoan);
+
+    formatLKR(maxLoan, loanBuf);
+    printf("Loan Amount : LKR %s.\n", loanBuf);
     printf("Interest Rate : %d%%\n", game[0].economy.loanInterestRate);
     printf("Duration : %d Rounds\n", LOAN_DURATION_ROUNDS);
 
