@@ -600,7 +600,14 @@ void displayFinalResults(GameState game[])
         printf("Properties : %d\n", game[0].players[i].propertiesOwned);
         printf("Railways   : %d\n", game[0].players[i].railwaysOwned);
         printf("Utilities  : %d\n", game[0].players[i].utilitiesOwned);
-        printf("Status : %s\n", game[0].players[i].bankrupt ? "Bankrupt" : "Active");
+        if(game[0].players[i].bankrupt)
+        {
+            printf("Status : Bankrupt\n");
+        }
+        else
+        {
+            printf("Status : Active\n");
+        }
     }
 }
 
