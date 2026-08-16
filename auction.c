@@ -98,6 +98,39 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
         safetyRounds++;
     }
 
+    /* If exactly one bidder is still active, give them one final
+       chance to bid at the next increment before awarding. */
+    if(activeCount == 1 && highBidder == -1)
+    {
+        int remaining;
+
+        remaining = -1;
+
+        for(i = 0; i < MAX_PLAYERS; i++)
+        {
+            if(active[i])
+            {
+                remaining = i;
+                break;
+            }
+        }
+
+        if(remaining != -1)
+        {
+            candidateBid = currentBid + AUCTION_BID_INCREMENT;
+
+            if(willingToBid(game, remaining, propIndex, candidateBid))
+            {
+                currentBid = candidateBid;
+                highBidder = remaining;
+
+                formatLKR(currentBid, moneyBuf);
+                printf("%s bids LKR %s.\n",
+                       game[0].players[remaining].name, moneyBuf);
+            }
+        }
+    }
+
     if(highBidder == -1)
     {
         int lastActive;
@@ -126,6 +159,10 @@ void runAuction(GameState game[], int propIndex, int sellerIndex)
 
         highBidder = lastActive;
     }
+
+    /* Always format the final winning price so the display is correct
+       regardless of which code path set highBidder. */
+    formatLKR(currentBid, moneyBuf);
 
     payMoney(game, highBidder, currentBid);
 

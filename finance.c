@@ -599,6 +599,10 @@ int calculatePropertyValue(GameState game[], int playerIndex)
         if(game[0].board[i].property.owner != playerIndex)
             continue;
 
+        /* mortgaged properties contribute zero to net worth */
+        if(game[0].board[i].property.mortgaged)
+            continue;
+
         /* railways and utilities also use currentMarketValue so their
            value modifiers (rail/port/water effects) apply too */
         total += currentMarketValue(game, i);

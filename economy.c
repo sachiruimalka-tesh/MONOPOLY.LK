@@ -481,7 +481,7 @@ void renovateStructuralDamage(GameState game[], int playerIndex)
         else
             replacementValue = game[0].board[i].property.houseCost;
 
-        cost = (replacementValue * 25) / 100;
+        cost = (replacementValue * DAMAGE_REPAIR_MULTIPLIER) / 100;
 
         if(game[0].players[playerIndex].cash < cost)
             continue;
