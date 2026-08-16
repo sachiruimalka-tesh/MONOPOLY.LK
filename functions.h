@@ -152,6 +152,9 @@ void initEconomy(GameState game[]);
 void applyInflation(GameState game[]);
 void addModifier(GameState game[], ModifierType type, int group, int index,
                  int percent, int roundsLeft);
+void addSourcedModifier(GameState game[], ModifierType type, int group,
+                        int index, int percent, int roundsLeft,
+                        ModifierSource source);
 int modifierMultiplier(GameState game[], ModifierType type, int group, int index);
 int isModifierActive(GameState game[], ModifierType type, int group, int index);
 void decrementModifiers(GameState game[]);

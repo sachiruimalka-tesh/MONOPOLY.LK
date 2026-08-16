@@ -39,8 +39,9 @@ int applyRate(int oldValue, int ratePercent)
 /* Adds a timed modifier (Rule-LK 30-35).  group/index are -1 when not
    relevant.  Effects accumulate: two active +25% rents give
    roughly +56%, so simultaneous effects are cumulative (Rule-LK 34). */
-void addModifier(GameState game[], ModifierType type, int group, int index,
-                 int percent, int roundsLeft)
+void addSourcedModifier(GameState game[], ModifierType type, int group,
+                        int index, int percent, int roundsLeft,
+                        ModifierSource source)
 {
     Economy *e = &game[0].economy;
 
@@ -52,12 +53,24 @@ void addModifier(GameState game[], ModifierType type, int group, int index,
     e->modifiers[e->modifierCount].index = index;
     e->modifiers[e->modifierCount].percent = percent;
     e->modifiers[e->modifierCount].roundsLeft = roundsLeft;
+    e->modifiers[e->modifierCount].source = source;
 
     e->modifierCount++;
 }
 
+/* Events, national cards and regulations use this - they are all
+   generic effects, not Market Boom/Decline or Regional cards. */
+void addModifier(GameState game[], ModifierType type, int group, int index,
+                 int percent, int roundsLeft)
+{
+    addSourcedModifier(game, type, group, index, percent, roundsLeft, SRC_GENERAL);
+}
+
 /* Effective percentage multiplier from every active matching modifier,
-   multiplied together (Rule-LK 34).  Returns 100 when none match. */
+   multiplied together (Rule-LK 34).  Returns 100 when none match.
+   A modifier with group == -1 is global and applies to every group,
+   so it matches regardless of the requested group (and likewise for
+   index == -1). */
 int modifierMultiplier(GameState game[], ModifierType type, int group, int index)
 {
     int mult;
@@ -71,9 +84,9 @@ int modifierMultiplier(GameState game[], ModifierType type, int group, int index
 
         if(m->type != type)
             continue;
-        if(group != -1 && m->group != group)
+        if(group != -1 && m->group != -1 && m->group != group)
             continue;
-        if(index != -1 && m->index != index)
+        if(index != -1 && m->index != -1 && m->index != index)
             continue;
 
         mult = (mult * m->percent) / 100;

@@ -16,13 +16,20 @@ void payMoney(GameState game[], int playerIndex, int amount)
     game[0].players[playerIndex].cash -= amount;
 
     /* Section 3.4: a Risk Taker facing bankruptcy first sells their
-       cheapest undeveloped property to the Bank to raise cash. */
+       cheapest undeveloped property to the Bank to raise cash.
+       Loan-locked collateral (Rule-LK 3) can't be sold, so stop as
+       soon as a sale fails to reduce the stock of undeveloped
+       properties - otherwise this loop would never end. */
     while(game[0].players[playerIndex].cash < 0 &&
           !game[0].players[playerIndex].bankrupt &&
-          game[0].players[playerIndex].strategy == RISK_TAKER &&
-          countUndevelopedProperties(game, playerIndex) > 0)
+          game[0].players[playerIndex].strategy == RISK_TAKER)
     {
+        int before = countUndevelopedProperties(game, playerIndex);
+
         sellLowValueProperty(game, playerIndex);
+
+        if(countUndevelopedProperties(game, playerIndex) >= before)
+            break;
     }
 
     if(game[0].players[playerIndex].cash < 0 && !game[0].players[playerIndex].bankrupt)
@@ -403,10 +410,12 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
     {
         int hotelCost;
 
-        /* Rule-LK 13: base hotel cost is permanent; temporary events
-           only add modifiers on top (Rule-LK 34). */
+        /* Rule-LK 13/31/34: base hotel cost is permanent; temporary
+           events only add modifiers on top. A market boom's +10%
+           applies only to the booming group, while event/regulation
+           modifiers (group -1) are global. */
         hotelCost = (game[0].board[targetIndex].property.hotelCost *
-                     modifierMultiplier(game, MOD_CONSTRUCTION, -1, -1)) / 100;
+                     modifierMultiplier(game, MOD_CONSTRUCTION, group, -1)) / 100;
 
         if(!shouldConstruct(game, playerIndex, hotelCost))
             return 0;
@@ -432,7 +441,7 @@ int developGroup(GameState game[], int playerIndex, PropertyGroup group)
         int houseCost;
 
         houseCost = (game[0].board[targetIndex].property.houseCost *
-                     modifierMultiplier(game, MOD_CONSTRUCTION, -1, -1)) / 100;
+                     modifierMultiplier(game, MOD_CONSTRUCTION, group, -1)) / 100;
 
         if(!shouldConstruct(game, playerIndex, houseCost))
             return 0;
@@ -630,6 +639,10 @@ void sellLowValueProperty(GameState game[], int playerIndex)
         if(game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel)
             continue;
 
+        /* Rule-LK 3: loan-locked collateral can never be sold */
+        if(game[0].board[i].property.loanLocked)
+            continue;
+
         value = currentMarketValue(game, i);
 
         if(best == -1 || value < bestValue)
@@ -678,6 +691,10 @@ void sellUndevelopedPropertyToAuction(GameState game[], int playerIndex)
             continue;
 
         if(game[0].board[i].property.houses > 0 || game[0].board[i].property.hotel)
+            continue;
+
+        /* Rule-LK 3: loan-locked collateral can never be auctioned */
+        if(game[0].board[i].property.loanLocked)
             continue;
 
         value = currentMarketValue(game, i);
@@ -743,7 +760,16 @@ void enforceAntiSpeculation(GameState game[])
 
                 while(excess > 0)
                 {
+                    int before = countUndevelopedProperties(game, i);
+
                     sellUndevelopedPropertyToAuction(game, i);
+
+                    /* nothing sellable left (e.g. every excess
+                       property is loan-locked) - stop to avoid a
+                       non-terminating loop */
+                    if(countUndevelopedProperties(game, i) >= before)
+                        break;
+
                     excess = countUndevelopedProperties(game, i) - 3;
                 }
 
@@ -779,21 +805,17 @@ void buyProperty(GameState game[], int playerIndex)
 
     if(game[0].board[pos].type == PROPERTY)
     {
-        /* Rule-LK 34: market booms raise direct purchase prices. */
+        /* Rule-LK 31/34: a booming group's direct purchase prices
+           rise by 15% (group-scoped, not global). */
         price = (currentMarketValue(game, pos) *
-                 modifierMultiplier(game, MOD_PURCHASE_PRICE, -1, -1)) / 100;
+                 modifierMultiplier(game, MOD_PURCHASE_PRICE,
+                                    game[0].board[pos].property.group, -1)) / 100;
     }
 
     wantsToBuy = shouldBuyProperty(game, playerIndex);
 
     if(game[0].players[playerIndex].cash < price)
         wantsToBuy = 0;
-
-    if(game[0].economy.antiSpeculationActive && game[0].board[pos].type == PROPERTY)
-    {
-        if(countUndevelopedProperties(game, playerIndex) >= 3)
-            wantsToBuy = 0;
-    }
 
     /* Rule 5: if they don't buy directly, it goes to auction */
     if(!wantsToBuy)

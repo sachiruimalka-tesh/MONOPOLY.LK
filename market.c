@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "types.h"
@@ -85,21 +85,23 @@ void reviewPropertyMarket(GameState game[], int currentRound)
     printf("Market Boom : %s (values +20%%, rent +25%%) for 10 rounds.\n", boomName);
     printf("Market Decline : %s (values -15%%, rent -20%%) for 10 rounds.\n", declineName);
 
-    addModifier(game, MOD_GROUP_VALUE, boomGroup, -1, 120, 10);
-    addModifier(game, MOD_GROUP_RENT, boomGroup, -1, 125, 10);
+    addSourcedModifier(game, MOD_GROUP_VALUE, boomGroup, -1, 120, 10, SRC_BOOM);
+    addSourcedModifier(game, MOD_GROUP_RENT, boomGroup, -1, 125, 10, SRC_BOOM);
 
-    addModifier(game, MOD_GROUP_VALUE, declineGroup, -1, 85, 10);
-    addModifier(game, MOD_GROUP_RENT, declineGroup, -1, 80, 10);
+    addSourcedModifier(game, MOD_GROUP_VALUE, declineGroup, -1, 85, 10, SRC_DECLINE);
+    addSourcedModifier(game, MOD_GROUP_RENT, declineGroup, -1, 80, 10, SRC_DECLINE);
 
-    /* Rule-LK 34: the boom group's mortgage values rise by 15% and
-       the decline group's fall by 10%; direct purchase prices rise
-       by 15% and auction starting prices fall by 25%. */
-    addModifier(game, MOD_MARKET_MORTGAGE, boomGroup, -1, 115, 10);
-    addModifier(game, MOD_PURCHASE_PRICE, -1, -1, 115, 10);
-    addModifier(game, MOD_CONSTRUCTION, -1, -1, 110, 10);
+    /* Rule-LK 31/32/34: the boom group's mortgage values rise by 15%,
+       direct purchase prices rise by 15% and construction costs rise
+       by 10%; the decline group's mortgage values fall by 10% and
+       auction starting prices fall by 25%.  All are scoped to the
+       affected group. */
+    addSourcedModifier(game, MOD_MARKET_MORTGAGE, boomGroup, -1, 115, 10, SRC_BOOM);
+    addSourcedModifier(game, MOD_PURCHASE_PRICE, boomGroup, -1, 115, 10, SRC_BOOM);
+    addSourcedModifier(game, MOD_CONSTRUCTION, boomGroup, -1, 110, 10, SRC_BOOM);
 
-    addModifier(game, MOD_MARKET_MORTGAGE, declineGroup, -1, 90, 10);
-    addModifier(game, MOD_AUCTION_PRICE, -1, -1, 75, 10);
+    addSourcedModifier(game, MOD_MARKET_MORTGAGE, declineGroup, -1, 90, 10, SRC_DECLINE);
+    addSourcedModifier(game, MOD_AUCTION_PRICE, declineGroup, -1, 75, 10, SRC_DECLINE);
 
     game[0].economy.groupCooldownUntilRound[boomGroup] = currentRound + 30;
     game[0].economy.groupCooldownUntilRound[declineGroup] = currentRound + 30;
@@ -122,69 +124,69 @@ void drawRegionalCard(GameState game[])
         case 0:
             printf("Southern Tourism Boom : Galle Fort, Unawatuna and "
                    "Hikkaduwa rental income +40%%.\n");
-            addModifier(game, MOD_GROUP_RENT, YELLOW, -1, 140, 15);
+            addSourcedModifier(game, MOD_GROUP_RENT, YELLOW, -1, 140, 15, SRC_REGIONAL);
             break;
 
         case 1:
             printf("Port City Expansion : Pettah and Maradana values +25%%.\n");
-            addModifier(game, MOD_GROUP_VALUE, BROWN, -1, 125, 15);
-            addModifier(game, MOD_INDEX_VALUE, -1, 5, 125, 15);   /* Colombo Fort Station */
+            addSourcedModifier(game, MOD_GROUP_VALUE, BROWN, -1, 125, 15, SRC_REGIONAL);
+            addSourcedModifier(game, MOD_INDEX_VALUE, -1, 5, 125, 15, SRC_REGIONAL);   /* Colombo Fort Station */
             break;
 
         case 2:
             printf("IT Industry Growth : Maharagama, Nugegoda and "
                    "Kottawa values +20%%.\n");
-            addModifier(game, MOD_GROUP_VALUE, PINK, -1, 120, 15);
+            addSourcedModifier(game, MOD_GROUP_VALUE, PINK, -1, 120, 15, SRC_REGIONAL);
             break;
 
         case 3:
             printf("Northern Development Programme : Jaffna Town, Nallur "
                    "and Trincomalee values +30%%.\n");
-            addModifier(game, MOD_GROUP_VALUE, GREEN, -1, 130, 15);
+            addSourcedModifier(game, MOD_GROUP_VALUE, GREEN, -1, 130, 15, SRC_REGIONAL);
             break;
 
         case 4:
             printf("Tea Export Boom : Nuwara Eliya value +35%%.\n");
-            addModifier(game, MOD_INDEX_VALUE, -1, 37, 135, 15);
+            addSourcedModifier(game, MOD_INDEX_VALUE, -1, 37, 135, 15, SRC_REGIONAL);
             break;
 
         case 5:
             printf("Airport Expansion : Negombo, Katunayake and "
                    "Ja-Ela rents +30%%.\n");
-            addModifier(game, MOD_GROUP_RENT, ORANGE, -1, 130, 15);
+            addSourcedModifier(game, MOD_GROUP_RENT, ORANGE, -1, 130, 15, SRC_REGIONAL);
             break;
 
         case 6:
             printf("University City Growth : Peradeniya and "
                    "Kandy City values +20%%.\n");
-            addModifier(game, MOD_GROUP_VALUE, RED, -1, 120, 15);
+            addSourcedModifier(game, MOD_GROUP_VALUE, RED, -1, 120, 15, SRC_REGIONAL);
             break;
 
         case 7:
             printf("Beach Pollution : Southern coastal rents -30%%.\n");
-            addModifier(game, MOD_GROUP_RENT, YELLOW, -1, 70, 15);
+            addSourcedModifier(game, MOD_GROUP_RENT, YELLOW, -1, 70, 15, SRC_REGIONAL);
             break;
 
         case 8:
             printf("Flood Damage : Low-lying coastal properties lose 20%% value.\n");
-            addModifier(game, MOD_GROUP_VALUE, YELLOW, -1, 80, 15);
+            addSourcedModifier(game, MOD_GROUP_VALUE, YELLOW, -1, 80, 15, SRC_REGIONAL);
             break;
 
         case 9:
             printf("Transport Strike : Railway revenue reduced by 40%%.\n");
-            addModifier(game, MOD_RAIL_RENT, -1, -1, 60, 15);
+            addSourcedModifier(game, MOD_RAIL_RENT, -1, -1, 60, 15, SRC_REGIONAL);
             break;
 
         case 10:
             printf("Electricity Tariff Increase : Utility rent +25%%.\n");
-            addModifier(game, MOD_UTIL_RENT, -1, -1, 125, 15);
+            addSourcedModifier(game, MOD_UTIL_RENT, -1, -1, 125, 15, SRC_REGIONAL);
             break;
 
         case 11:
             printf("Water Shortage : Utility revenue +20%%.\n");
-            addModifier(game, MOD_UTIL_RENT, -1, -1, 120, 15);
-            addModifier(game, MOD_INDEX_VALUE, -1, 13, 90, 15);
-            addModifier(game, MOD_INDEX_VALUE, -1, 29, 90, 15);
+            addSourcedModifier(game, MOD_UTIL_RENT, -1, -1, 120, 15, SRC_REGIONAL);
+            addSourcedModifier(game, MOD_INDEX_VALUE, -1, 13, 90, 15, SRC_REGIONAL);
+            addSourcedModifier(game, MOD_INDEX_VALUE, -1, 29, 90, 15, SRC_REGIONAL);
             break;
 
         default:
@@ -192,12 +194,12 @@ void drawRegionalCard(GameState game[])
     }
 }
 
-/* Rule-LK 36: shows the currently active market conditions. */
+/* Rule-LK 36: shows the currently active market conditions at the
+   end of every round, in the Section 5 format. */
 void displayMarketConditions(GameState game[])
 {
     int i;
     int shown;
-    char name[32];
 
     printf("\n=========================================\n");
     printf("Current Market Conditions\n");
@@ -205,59 +207,215 @@ void displayMarketConditions(GameState game[])
 
     shown = 0;
 
+    /* Market Boom (Rule-LK 31) */
     for(i = 0; i < game[0].economy.modifierCount; i++)
     {
         ActiveModifier *m = &game[0].economy.modifiers[i];
+        char name[32];
 
-        switch(m->type)
+        if(m->source != SRC_BOOM || m->type != MOD_GROUP_VALUE)
+            continue;
+
+        groupName((PropertyGroup)m->group, name);
+
+        printf("Market Boom\n");
+        printf("-------------\n");
+        printf("%s (%+d%%)\n", name, m->percent - 100);
+        printf("Rounds Remaining : %d\n", m->roundsLeft);
+
+        shown = 1;
+        break;
+    }
+
+    /* Market Decline (Rule-LK 32) */
+    for(i = 0; i < game[0].economy.modifierCount; i++)
+    {
+        ActiveModifier *m = &game[0].economy.modifiers[i];
+        char name[32];
+
+        if(m->source != SRC_DECLINE || m->type != MOD_GROUP_VALUE)
+            continue;
+
+        groupName((PropertyGroup)m->group, name);
+
+        printf("Market Decline\n");
+        printf("----------------\n");
+        printf("%s (%+d%%)\n", name, m->percent - 100);
+        printf("Rounds Remaining : %d\n", m->roundsLeft);
+
+        shown = 1;
+        break;
+    }
+
+    /* Regional Development Card effects (Table 4) */
+    {
+        int first;
+
+        first = 1;
+
+        for(i = 0; i < game[0].economy.modifierCount; i++)
         {
-            case MOD_GROUP_VALUE:
-                groupName((PropertyGroup)m->group, name);
-                printf("%s properties : values x%d%% (%d rounds remaining)\n",
-                       name, m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+            ActiveModifier *m = &game[0].economy.modifiers[i];
+            char name[48];
 
-            case MOD_GROUP_RENT:
-                groupName((PropertyGroup)m->group, name);
-                printf("%s properties : rent x%d%% (%d rounds remaining)\n",
-                       name, m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+            if(m->source != SRC_REGIONAL)
+                continue;
 
-            case MOD_INDEX_VALUE:
-                printf("%s : value x%d%% (%d rounds remaining)\n",
-                       game[0].board[m->index].name, m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+            switch(m->type)
+            {
+                case MOD_GROUP_VALUE:
+                case MOD_GROUP_RENT:
+                    if(m->group >= 0 && m->group < NO_GROUP)
+                        groupName((PropertyGroup)m->group, name);
+                    else
+                        strcpy(name, "Unknown");
 
-            case MOD_RAIL_VALUE:
-                printf("Railway values : x%d%% (%d rounds remaining)\n",
-                       m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+                    if(first)
+                    {
+                        printf("Regional Development\n");
+                        printf("-----------------------\n");
+                        first = 0;
+                    }
 
-            case MOD_RAIL_RENT:
-                printf("Railway rents : x%d%% (%d rounds remaining)\n",
-                       m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+                    if(m->type == MOD_GROUP_VALUE)
+                        printf("%s (%+d%%)\n", name, m->percent - 100);
+                    else
+                        printf("%s rents (%+d%%)\n", name, m->percent - 100);
 
-            case MOD_UTIL_RENT:
-                printf("Utility rents : x%d%% (%d rounds remaining)\n",
-                       m->percent, m->roundsLeft);
-                shown = 1;
-                break;
+                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                    shown = 1;
+                    break;
 
-            default:
-                break;
+                case MOD_INDEX_VALUE:
+                    if(first)
+                    {
+                        printf("Regional Development\n");
+                        printf("-----------------------\n");
+                        first = 0;
+                    }
+
+                    printf("%s (%+d%%)\n",
+                           game[0].board[m->index].name, m->percent - 100);
+                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                    shown = 1;
+                    break;
+
+                case MOD_RAIL_RENT:
+                case MOD_UTIL_RENT:
+                    if(first)
+                    {
+                        printf("Regional Development\n");
+                        printf("-----------------------\n");
+                        first = 0;
+                    }
+
+                    if(m->type == MOD_RAIL_RENT)
+                        printf("Railway rents (%+d%%)\n", m->percent - 100);
+                    else
+                        printf("Utility rents (%+d%%)\n", m->percent - 100);
+
+                    printf("Rounds Remaining : %d\n", m->roundsLeft);
+                    shown = 1;
+                    break;
+
+                default:
+                    break;
+            }
         }
     }
 
     if(!shown)
-        printf("No active market booms or declines right now.\n");
+        printf("No active market booms, declines or regional conditions right now.\n");
 
-    printf("Inflation Rate : %+d%%\n", game[0].economy.inflationRate);
-    printf("Current Loan Interest : %d%%\n", game[0].economy.loanInterestRate);
+    /* Other active event/regulation effects (kept so nothing is lost) */
+    {
+        int otherShown;
+        char name[32];
+
+        otherShown = 0;
+
+        for(i = 0; i < game[0].economy.modifierCount; i++)
+        {
+            ActiveModifier *m = &game[0].economy.modifiers[i];
+
+            if(m->source != SRC_GENERAL)
+                continue;
+
+            switch(m->type)
+            {
+                case MOD_GROUP_VALUE:
+                case MOD_GROUP_RENT:
+                    groupName((PropertyGroup)m->group, name);
+
+                    if(!otherShown)
+                    {
+                        printf("Other Active Conditions\n");
+                        printf("-------------------------\n");
+                        otherShown = 1;
+                    }
+
+                    if(m->type == MOD_GROUP_VALUE)
+                        printf("%s : values x%d%% (%d rounds remaining)\n",
+                               name, m->percent, m->roundsLeft);
+                    else
+                        printf("%s : rents x%d%% (%d rounds remaining)\n",
+                               name, m->percent, m->roundsLeft);
+                    break;
+
+                case MOD_INDEX_VALUE:
+                    if(!otherShown)
+                    {
+                        printf("Other Active Conditions\n");
+                        printf("-------------------------\n");
+                        otherShown = 1;
+                    }
+
+                    printf("%s : value x%d%% (%d rounds remaining)\n",
+                           game[0].board[m->index].name, m->percent, m->roundsLeft);
+                    break;
+
+                case MOD_RAIL_VALUE:
+                    if(!otherShown)
+                    {
+                        printf("Other Active Conditions\n");
+                        printf("-------------------------\n");
+                        otherShown = 1;
+                    }
+
+                    printf("Railway values : x%d%% (%d rounds remaining)\n",
+                           m->percent, m->roundsLeft);
+                    break;
+
+                case MOD_RAIL_RENT:
+                case MOD_UTIL_RENT:
+                    if(!otherShown)
+                    {
+                        printf("Other Active Conditions\n");
+                        printf("-------------------------\n");
+                        otherShown = 1;
+                    }
+
+                    if(m->type == MOD_RAIL_RENT)
+                        printf("Railway rents : x%d%% (%d rounds remaining)\n",
+                               m->percent, m->roundsLeft);
+                    else
+                        printf("Utility rents : x%d%% (%d rounds remaining)\n",
+                               m->percent, m->roundsLeft);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    printf("Inflation\n");
+    printf("------------\n");
+    printf("%+d%%\n", game[0].economy.inflationRate);
+
+    printf("Current Loan Interest\n");
+    printf("-----------------------\n");
+    printf("%d%%\n", game[0].economy.loanInterestRate);
+
     printf("=========================================\n");
 }

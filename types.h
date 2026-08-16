@@ -208,6 +208,19 @@ typedef enum
 } ModifierType;
 
 
+/* Where a modifier came from - used by Rule-LK 36 to group the
+   currently active conditions into Market Boom / Market Decline /
+   Regional Development sections. */
+typedef enum
+{
+    SRC_GENERAL,    /* events, national cards, government regulations */
+    SRC_BOOM,       /* Property Market Review - boom group */
+    SRC_DECLINE,    /* Property Market Review - decline group */
+    SRC_REGIONAL    /* Regional Development Card */
+
+} ModifierSource;
+
+
 typedef struct
 {
     ModifierType type;
@@ -215,6 +228,7 @@ typedef struct
     int index;      /* square index for INDEX modifiers, else -1 */
     int percent;    /* 100 means no change */
     int roundsLeft;
+    ModifierSource source;
 
 } ActiveModifier;
 

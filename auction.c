@@ -2,18 +2,25 @@
 #include "types.h"
 #include "functions.h"
 
-/* Rule-LK 19: opening bid is 50% of market value.  Market declines
-   lower the starting price by 25% (Rule-LK 34). */
+/* Rule-LK 19: opening bid is 50% of market value.  A market decline
+   lowers the starting price by 25% (Rule-LK 32/34) - group-scoped. */
 int getAskingValue(GameState game[], int propIndex)
 {
     int value;
+    int group;
 
     if(game[0].board[propIndex].type == PROPERTY)
+    {
         value = currentMarketValue(game, propIndex);
+        group = game[0].board[propIndex].property.group;
+    }
     else
+    {
         value = game[0].board[propIndex].property.purchasePrice;
+        group = -1;
+    }
 
-    value = (value * modifierMultiplier(game, MOD_AUCTION_PRICE, -1, -1)) / 100;
+    value = (value * modifierMultiplier(game, MOD_AUCTION_PRICE, group, -1)) / 100;
 
     return value;
 }
@@ -83,9 +90,39 @@ void runAuction(GameState game[], int propIndex)
 
     if(highBidder == -1)
     {
-        printf("No bids received. %s remains with the Bank.\n",
-               game[0].board[propIndex].name);
-        return;
+        int i;
+        int lastActive;
+
+        /* One player never got a chance to bid (e.g. the first active
+           player declined while only two were in) - they may take the
+           property at the opening bid. */
+        lastActive = -1;
+
+        for(i = 0; i < MAX_PLAYERS; i++)
+        {
+            if(active[i])
+            {
+                lastActive = i;
+                break;
+            }
+        }
+
+        if(lastActive == -1)
+        {
+            printf("No bids received. %s remains with the Bank.\n",
+                   game[0].board[propIndex].name);
+            return;
+        }
+
+        /* They may still decline the opening price itself */
+        if(!willingToBid(game, lastActive, propIndex, currentBid))
+        {
+            printf("No bids received. %s remains with the Bank.\n",
+                   game[0].board[propIndex].name);
+            return;
+        }
+
+        highBidder = lastActive;
     }
 
     payMoney(game, highBidder, currentBid);
