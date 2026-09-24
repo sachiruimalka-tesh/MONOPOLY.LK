@@ -57,6 +57,32 @@ KEYWORD_NAVY = (24, 24, 130)
 PREPROC_GRAY = (140, 140, 140)
 CODE_BLACK = (30, 30, 30)
 
+# -- callout boxes (WHY / WHAT / LOGIC) -----------------------------------
+EXPLAIN_WHY_FILL = (215, 228, 245)
+EXPLAIN_WHY_EDGE = (40, 90, 160)
+EXPLAIN_WHY_LBL = (20, 60, 130)
+EXPLAIN_WHAT_FILL = (222, 240, 222)
+EXPLAIN_WHAT_EDGE = (50, 130, 70)
+EXPLAIN_WHAT_LBL = (20, 90, 45)
+EXPLAIN_LOGIC_FILL = (250, 242, 212)
+EXPLAIN_LOGIC_EDGE = (170, 120, 30)
+EXPLAIN_LOGIC_LBL = (120, 80, 10)
+
+# -- colour palette for the code tree diagram -----------------------------
+TREE_NAVY = (16, 48, 96)
+TREE_TEAL = (0, 116, 128)
+TREE_GREEN = (34, 120, 70)
+TREE_ORANGE = (168, 100, 20)
+TREE_PURPLE = (110, 70, 150)
+TREE_FILL_T = (224, 240, 242)
+TREE_FILL_G = (226, 240, 228)
+TREE_FILL_O = (246, 236, 222)
+TREE_FILL_P = (238, 230, 246)
+TREE_DARK_T = (10, 70, 78)
+TREE_DARK_G = (16, 70, 36)
+TREE_DARK_O = (100, 58, 8)
+TREE_DARK_P = (70, 38, 100)
+
 
 # --------------------------------------------------------------------------
 # helpers
@@ -199,6 +225,45 @@ class Guide(FPDF):
         self.set_text_color(25, 25, 25)
         self.ln(1.2)
 
+    def callout(self, label, text, fill, edge, label_col, size=9.2):
+        """A rounded filled box: a small bold label on top + justified body.
+        Used for the WHY / WHAT / LOGIC explanation boxes after code."""
+        pad = 1.8
+        width = self.w - self.l_margin - self.r_margin
+        w_in = width - 2 * pad
+        self.set_font("Arial", "", size)
+        lines = self.lines_in(text, w_in - 2, size)
+        h = 4.6 + lines * (size * 0.55) + 2 * pad + 1.2
+        if self.get_y() + h > self.h - self.b_margin:
+            self.add_page()
+        y0 = self.get_y()
+        x0 = self.l_margin
+        self.set_fill_color(*fill)
+        self.set_draw_color(*edge)
+        self.set_line_width(0.4)
+        self.rect(x0, y0, width, h, "DF", round_corners=True, corner_radius=1.2)
+        self.set_xy(x0 + pad, y0 + pad)
+        self.set_font("Arial", "B", size - 1.0)
+        self.set_text_color(*label_col)
+        self.multi_cell(w_in, 4.2, label, align="L", new_x="LEFT", new_y="NEXT")
+        self.set_x(x0 + pad)
+        self.set_font("Arial", "", size)
+        self.set_text_color(40, 40, 40)
+        self.multi_cell(w_in, size * 0.55, text, align="J", new_x="LEFT", new_y="NEXT")
+        self.set_y(y0 + h)
+        self.ln(1.6)
+
+    def explain(self, why, what, logic):
+        """Three callout boxes: why this code exists / what each part does /
+        the logic thinking behind it."""
+        self.callout("WHY  this code is included", why,
+                     EXPLAIN_WHY_FILL, EXPLAIN_WHY_EDGE, EXPLAIN_WHY_LBL)
+        self.callout("WHAT  each part of the code does", what,
+                     EXPLAIN_WHAT_FILL, EXPLAIN_WHAT_EDGE, EXPLAIN_WHAT_LBL)
+        self.callout("LOGIC  the thinking behind the design", logic,
+                     EXPLAIN_LOGIC_FILL, EXPLAIN_LOGIC_EDGE, EXPLAIN_LOGIC_LBL)
+        self.ln(1)
+
     # -- code --------------------------------------------------------------
 
     def code_plain(self, s, style, color):
@@ -237,12 +302,25 @@ class Guide(FPDF):
         self.ln(CODE_LH)
 
     def code_block(self, text, title=None):
+        """A code listing always starts on a fresh page so two listings never
+        share (or overwrite) a page. Title, when given, becomes a banner."""
+        self.add_page()
         if title:
-            self.set_font("Arial", "B", 9)
-            self.set_text_color(*NAVY)
-            self.multi_cell(0, 4.8, title, align="L")
+            self.set_fill_color(*NAVY)
+            self.set_draw_color(*NAVY)
+            self.set_line_width(0.5)
+            self.set_font("Arial", "B", 9.5)
+            self.set_text_color(255, 255, 255)
+            y0 = self.get_y()
+            self.set_xy(self.l_margin, y0)
+            self.multi_cell(self.w - self.l_margin - self.r_margin, 5.6,
+                            "  " + title, align="L")
             self.set_text_color(25, 25, 25)
-            self.ln(0.8)
+            self.ln(1.2)
+            if self.recording:
+                self.toc_entries.append((title, 1, self.page_no()))
+        else:
+            self.set_line_width(0.5)
         in_comment = False
         for raw in text.splitlines():
             line = "".join(ch if ord(ch) < 256 else "?" for ch in raw)
@@ -276,6 +354,109 @@ class Guide(FPDF):
                     in_comment = not ("*/" in disp[idx + 2:])
                     continue
                 self.code_tokens(disp)
+        self.ln(2)
+
+    # -- colourful tree diagram -------------------------------------------
+
+    def tree_text(self, cx, cy, text, style, size, color):
+        """Draw a single line of text centred horizontally at (cx, cy)."""
+        self.set_font("Arial", style, size)
+        self.set_text_color(*color)
+        tw = self.get_string_width(text)
+        self.set_xy(max(self.l_margin, cx - tw / 2), cy - size * 0.28)
+        self.cell(min(tw, self.w - self.l_margin - self.r_margin),
+                  size * 0.55, text, align="C")
+
+    def tree_box(self, cx, cy, w, h, fill, edge):
+        """A rounded, filled box centred at (cx, cy)."""
+        self.set_fill_color(*fill)
+        self.set_draw_color(*edge)
+        self.set_line_width(0.4)
+        self.rect(cx - w / 2, cy - h / 2, w, h, "DF",
+                  round_corners=True, corner_radius=1.1)
+
+    def code_tree(self):
+        """Colourful, read-as-a-tree diagram of the whole project structure."""
+        meta = [
+            ("Data model", TREE_TEAL, TREE_FILL_T, TREE_DARK_T, [
+                ("types.h", "361 lines - ALL constants, enums & structs"),
+                ("functions.h", "184 lines - prototypes of every function"),
+            ]),
+            ("Core engine", TREE_GREEN, TREE_FILL_G, TREE_DARK_G, [
+                ("main.c", "17 lines - entry point, creates GameState"),
+                ("game.c", "640 lines - turns, rounds, dice, jail, winner"),
+                ("board.c", "205 lines - builds the 40-square board"),
+                ("players.c", "405 lines - the 4 AI strategies"),
+            ]),
+            ("Economy & rules", TREE_ORANGE, TREE_FILL_O, TREE_DARK_O, [
+                ("finance.c", "1076 - money, rent, buying, mortgage"),
+                ("bank.c", "394 - loans, collateral, foreclosure"),
+                ("auction.c", "178 - the auction engine"),
+                ("events.c", "402 - event cards & regulations"),
+                ("economy.c", "503 - inflation, modifiers, ageing"),
+                ("insurance.c", "392 - policies & disasters"),
+                ("market.c", "430 - boom/decline & regional cards"),
+            ]),
+            ("Tooling & data", TREE_PURPLE, TREE_FILL_P, TREE_DARK_P, [
+                ("verify_analysis.py", "1458 - the verification analyzer"),
+                ("generate_viva_pdf.py", "this script - makes this guide"),
+                ("Rent.csv", "23 lines - price/rent data table"),
+                ("output/", "verification report"),
+                ("run*.txt / test.txt", "saved game logs"),
+                ("monopoly.exe", "the compiled Windows binary"),
+                ("monopoly_final.zip", "the submission archive"),
+            ]),
+        ]
+        ncols = len(meta)
+        gw = (self.w - self.l_margin - self.r_margin) / ncols
+        gx = [self.l_margin + gw * i + gw / 2 for i in range(ncols)]
+
+        root_cy, root_h = 15.0, 9.0
+        self.tree_box(105, root_cy, 96, root_h, TREE_NAVY, TREE_NAVY)
+        self.tree_text(105, root_cy - 2.0, "MONOPOLY.LK", "B", 11, (255, 255, 255))
+        self.tree_text(105, root_cy + 2.2, "Sri Lanka themed Monopoly simulation in C",
+                       "", 6.6, (210, 220, 240))
+
+        spine_y = root_cy + root_h / 2 + 4.2
+        cat_cy, cat_h = spine_y + 3.2, 8.0
+
+        self.set_draw_color(*TREE_NAVY)
+        self.set_line_width(0.55)
+        self.line(105, root_cy + root_h / 2, 105, spine_y)
+        self.line(gx[0], spine_y, gx[-1], spine_y)
+        for i in range(ncols):
+            self.line(gx[i], spine_y, gx[i], cat_cy - cat_h / 2)
+
+        max_file_rows = max(len(files) for *_a, files in meta)
+        pitch = 11.4
+        first_file_y = cat_cy + cat_h / 2 + pitch / 2 + 2.5
+
+        for gi, (head, edge, fill, dark, files) in enumerate(meta):
+            cx = gx[gi]
+            self.tree_box(cx, cat_cy, gw - 4, cat_h, edge, edge)
+            self.tree_text(cx, cat_cy, head, "B", 8.2, (255, 255, 255))
+            self.set_draw_color(*edge)
+            self.set_line_width(0.45)
+            last_bottom = first_file_y + (len(files) - 1) * pitch + pitch / 2 - 0.5
+            self.line(cx, cat_cy + cat_h / 2, cx, last_bottom)
+            for fi, (fname, desc) in enumerate(files):
+                fy = first_file_y + fi * pitch
+                fw = gw - 8
+                x0 = cx - fw / 2
+                self.line(cx, fy, x0 + 2, fy)
+                self.set_draw_color(*edge)
+                self.set_line_width(0.35)
+                self.tree_box(cx, fy, fw, pitch - 1.4, fill, edge)
+                self.tree_text(cx, fy - 2.0, fname, "B", 7.6, dark)
+                self.tree_text(cx, fy + 1.9, desc, "", 5.7, (80, 80, 80))
+
+        legend_y = max(first_file_y + max_file_rows * pitch,
+                       cat_cy + cat_h / 2 + 5) + 6
+        self.tree_text(105, legend_y,
+                       "Colour = responsibility:  teal data model  |  green core engine  |  "
+                       "orange economy & rules  |  purple tooling & data",
+                       "", 6.8, (60, 60, 60))
+        self.set_y(legend_y + 4)
         self.ln(2)
 
     # -- tables ------------------------------------------------------------
@@ -428,6 +609,23 @@ def section_overview(pdf):
         "\n"
         "startGame(game);            /* passed as array, read/written as game[0].xxx */"
     )
+    pdf.explain(
+        "This tiny snippet is the backbone of the entire project. Every single "
+        "function in the codebase receives this same GameState and reads/writes it. "
+        "It is included on its own because, in a viva, examiners love to ask 'how "
+        "do all those files share data without global variables?' - this is the "
+        "answer. Without it the whole architecture would fall apart.",
+        "GameState game[1] = {0}  creates ONE struct but writes it as a one-element "
+        "array, and {0} zero-fills every field so nothing starts as garbage. "
+        "startGame(game) then hands that single object to the game engine. Inside "
+        "every other function you see game[0].field - the [0] reminds you it is an "
+        "array, never a pointer, but the effect is the same as passing a pointer.",
+        "The design rule was 'no explicit pointers anywhere'. In C, when you pass an "
+        "array to a function it silently decays to a pointer - so writing game[0].x "
+        "inside any function changes the ORIGINAL object in main(), not a copy. The "
+        "programmer therefore gets pointer-like sharing without ever typing an "
+        "asterisk, and every module can see the same board, players and economy "
+        "without using a global variable.")
     pdf.p("GameState contains everything the game needs to remember: the 40-square "
           "board, the 4 players, and the economy. Because pointers were not allowed, "
           "it is declared as a one-element array. In C, passing an array to a function "
@@ -471,6 +669,19 @@ def section_build(pdf):
         "monopoly.exe               # run the game (prints the whole game to screen)\n"
         "monopoly.exe > run.txt     # capture the game log for verification"
     )
+    pdf.explain(
+        "These three commands are the complete build-and-run workflow. They are "
+        "included because examiners ask 'how do I run your project?' more than any "
+        "other factual question, and this is the exact answer they expect.",
+        "gcc *.c -o monopoly  tells the compiler to take EVERY .c file in the folder "
+        "and link them into one executable called monopoly. Each file includes the "
+        "shared headers, so the compiler sees the whole program. Running "
+        "monopoly.exe prints the entire narrated game to the screen, and the third "
+        "line shows how to save that printed log to a file for the verifier.",
+        "Using *.c instead of listing files avoids mistakes - the compiler itself "
+        "collects all modules, so no file can be forgotten. Capturing the log to a "
+        "text file is the bridge to verification: the game and the verifier never "
+        "share code, they only share this printed log.")
     pdf.note("`gcc *.c -o monopoly` produces a clean build with zero warnings or errors. "
              "Each .c file #includes types.h and functions.h, and main.c + game.c are the only "
              "places that need the whole picture.")
@@ -478,6 +689,18 @@ def section_build(pdf):
     pdf.code_block(
         "python verify_analysis.py run.txt   # replays the log and reports [BUG]/[REVIEW] items"
     )
+    pdf.explain(
+        "The verifier is a separate Python program that reads the game log. It is "
+        "included here so you can show the examiner the evidence that the project "
+        "was tested - not just compiled.",
+        "python verify_analysis.py run.txt  runs the Python script with run.txt as "
+        "its input. The script literally replays every printed transaction and "
+        "compares it with what the rules say should happen, then prints [BUG] or "
+        "[REVIEW] lines for anything wrong.",
+        "The thinking: testing a simulation is hard (it is random), so instead the "
+        "team records what happened and checks the recording afterwards. Because the "
+        "log is a complete play-by-play, any rule violation leaves a trace that the "
+        "script can find automatically.")
     pdf.hint("\u0d9a\u0dca\u200d\u0dbb\u0dd3\u0da9\u0dcf\u0dc0 \u0d9a\u0dca\u200d\u0dbb\u0dd2\u0dba\u0dcf\u0dad\u0dca\u0db8\u0d9a "
              "\u0d9a\u0dd2\u0dbb\u0dd3\u0db8\u0da7 \u0db8\u0ddb\u0dad\u0dca\u200d\u0dbb\u0dd3 \u0d85\u0dc0\u0dc1\u0dca\u200d\u0dba "
              "\u0db1\u0dd0\u0dad.")
@@ -485,9 +708,15 @@ def section_build(pdf):
 
 def section_tree(pdf):
     pdf.h1("4", "The Code Tree (File Structure)")
-    pdf.p("Here is the whole project laid out as a tree, with the size of each file "
-          "and a one-line description. Memorising this order (types -> headers -> "
-          "game flow -> economy files) helps you describe the architecture in a viva.")
+    pdf.p("Here is the whole project laid out as a colourful tree. Each branch is "
+          "one responsibility area, each leaf is a file with its size and a "
+          "one-line description. Memorising this diagram (data model -> core "
+          "engine -> economy & rules -> tooling) helps you describe the whole "
+          "architecture in a viva in one breath.")
+    pdf.code_tree()
+    pdf.h2("4.1  The same tree in plain text (line counts)")
+    pdf.p("If you prefer to learn the exact file list, this is the identical "
+          "structure in a compact text form - easier to memorise line by line.")
     pdf.code_block(
         "MONOPOLY.LK/\n"
         "|\n"
@@ -518,6 +747,24 @@ def section_tree(pdf):
         "|\n"
         "`-- generate_viva_pdf.py   THIS script - produces the study guide PDF"
     )
+    pdf.explain(
+        "The tree exists so you can describe the whole project without opening any "
+        "file. An examiner often asks 'how is the project organised?' and expects a "
+        "structured answer - this diagram is that answer. Every file is included "
+        "because it plays one role: types.h and functions.h define the shared "
+        "vocabulary, the .c files implement it, verify_analysis.py proves it works.",
+        "Data model (teal) = the shared definitions every .c file #includes. "
+        "Core engine (green) = main.c (entry point), game.c (the turn/round loops), "
+        "board.c (the 40 squares), players.c (the AI decisions). "
+        "Economy & rules (orange) = finance.c, bank.c, auction.c, events.c, economy.c, "
+        "insurance.c and market.c - all the money and rules that make the game "
+        "behave like an economy. Tooling & data (purple) = the Python verifier, the "
+        "Rent.csv data table, output/, saved game logs and the submission archive.",
+        "The tree is drawn like a real tree (root -> branches -> leaves) because the "
+        "dependency flow is one-directional: a file can only depend on the files "
+        "above it. types.h sits at the root because everything else depends on it. "
+        "That ordering (data -> flow -> economy -> tools) is the same order you "
+        "should present the modules in a viva.")
     pdf.p("Roughly half the code is 'game logic' (finance.c, economy.c, bank.c, "
           "insurance.c, market.c, auction.c, events.c) and the other half is "
           "'control flow and decisions' (game.c, board.c, players.c, main.c).")
@@ -543,6 +790,23 @@ def section_architecture(pdf):
         "  |  playGame(game, order)                 -> the whole game\n"
         "  `  displayFinalResults(game)             -> winner + final standings"
     )
+    pdf.explain(
+        "This is the startup sequence - the exact journey a program takes from the "
+        "first line of main() to the first turn. It is included because 'walk me "
+        "through what happens when the program runs' is one of the most common "
+        "opening viva questions, and this treeline is the ideal memory hook.",
+        "main() is deliberately tiny: it creates the single GameState and calls "
+        "startGame(). startGame then lays every foundation - seed the random "
+        "generator with time so each game differs, build the 40 squares, create the "
+        "4 AI players with cash, set up the economy (interest, tax, modifier list), "
+        "clear market cooldowns, roll to decide who plays first, run the whole "
+        "game, and finally print the winner and standings.",
+        "The logic is separation of concerns: main() must not know HOW the game "
+        "works, it only must create state and kick off the engine. Each init_* step "
+        "belongs to the module that owns that data (board.c initialises the board, "
+        "players.c initialises players...) so no module reaches into another's "
+        "responsibility. srand(time(NULL)) is the one call that makes every run "
+        "unique.")
     pdf.h2("5.2  A single turn (playTurn)")
     pdf.p("This is the heart of the game. One AI player's whole turn, in order:")
     pdf.code_block(
@@ -566,6 +830,23 @@ def section_architecture(pdf):
         "  7. sellDecliningProperties -> Opportunistic Trader dumps declining properties\n"
         "  8. handleMortgageDecisions -> redeem a mortgage, then maybe raise a new one"
     )
+    pdf.explain(
+        "playTurn is the heart of the game - it defines EVERYTHING one AI player "
+        "does on one go. It is included in its own page because 'what happens "
+        "during a turn?' is the single most likely viva question, and this ordered "
+        "list is the complete answer.",
+        "Step 1 fixes broken buildings so the property earns again. Step 2 handles "
+        "jail (and if that ran, the turn stops - a jailed player does NOT move). "
+        "Steps 3-4 roll two dice and move, paying 2000 when passing GO. Step 5 is "
+        "the big if/else that dispatches on the square type: rent-and-buy for "
+        "properties (else auction), event cards, taxes, bank and insurance visits. "
+        "Steps 6-8 are the end-of-turn economy actions: build, sell garbage, and "
+        "manage mortgages.",
+        "The ordering is logical, not random: repairs come first so the machinery "
+        "works before you calculate anything; the landing resolution (step 5) "
+        "changes cash, so building decisions (step 6) must come AFTER it, never "
+        "before; sell/mortgage come last as 'tidy up' actions. Remembering this "
+        "order also tells the examiner you understand cause and effect in the game.")
     pdf.h2("5.3  What does a 'round' mean here?")
     pdf.p("This is an unusual and important detail. In a normal board game a round "
           "is 'everyone takes one turn'. Here a round only ends when EVERY solvent "
@@ -579,6 +860,18 @@ def section_architecture(pdf):
         "    if EVERY non-bankrupt player has passed GO this round:\n"
         "        -> round-end bookkeeping (5.4) and start a new round"
     )
+    pdf.explain(
+        "This loop is the skeleton of the whole simulation. It is the answer to "
+        "'how do you structure the game?' - the top-level while keeps going until "
+        "500 rounds or a winner appears.",
+        "Each iteration runs one player's turn. Bankrupt players are skipped. "
+        "Whenever someone passes GO a flag marks them for the current round, and "
+        "the moment EVERY surviving player has passed GO, the round is finished so "
+        "the round-end bookkeeping from 5.4 runs and a new round begins.",
+        "The key idea: a 'round' is NOT four turns here, it is 'everyone crossed "
+        "GO once'. Because players move different distances the flag system is the "
+        "only fair way to know a round is done. The 500 cap guarantees the loop "
+        "always terminates, which is why the game can never hang.")
     pdf.h2("5.4  Round-end bookkeeping (playGame, one round)")
     pdf.code_block(
         "processLoans(game)            (bank.c)     interest added to principal; foreclose at 0 rounds\n"
@@ -595,6 +888,22 @@ def section_architecture(pdf):
         "\n"
         "displayRoundSummary(game)  +  displayMarketConditions(game)"
     )
+    pdf.explain(
+        "This block is the 'world ticks forward' moment - the economic heartbeat "
+        "between rounds. It is on its own page because an examiner may ask 'where "
+        "do loans, ageing and events happen?' and the answer is: right here, once "
+        "per round.",
+        "The first six lines make the ongoing state evolve: loans grow with "
+        "interest (and default at zero rounds), insurance policies expire, "
+        "properties age, buildings degrade, event timers tick down, modifiers are "
+        "removed when their time is up, and the anti-speculation act force-sells "
+        "excess undeveloped property. The middle block schedules the periodic "
+        "headline events every 10, 15 and 20 rounds. The last line prints the "
+        "summary and market conditions for the log.",
+        "Why this grouping? Putting ALL timed effects in one place means the turn "
+        "loop never has to remember them - they happen exactly once per round by "
+        "construction. The cadence numbers (10/15/20) are constants, so the timing "
+        "is easy to change and easy to explain.")
     pdf.h2("5.5  How the modules talk to each other")
     pdf.code_block(
         "                        +----------------------+\n"
@@ -613,6 +922,21 @@ def section_architecture(pdf):
         "                                 |\n"
         "   every function reads/writes the SAME GameState passed as game[]"
     )
+    pdf.explain(
+        "This diagram is the architecture map - it shows which module calls which. "
+        "It is included because 'how do your modules communicate?' is a guaranteed "
+        "viva question, and it shows the dependency direction at a glance.",
+        "main.c -> startGame -> playGame -> playTurn is the call chain of the "
+        "whole game. From playTurn, each landing or decision drops INTO a helper "
+        "module: rent goes through finance.c's payRent->calculateRent which itself "
+        "asks economy.c for multipliers; buying asks players.c whether the AI likes "
+        "the deal, else auction.c; loans and events fan out to bank.c, events.c, "
+        "insurance.c and market.c.",
+        "The single organising principle is that control flows DOWN the diagram and "
+        "data flows UP through the shared GameState. Modules never call each other "
+        "sideways for money - they all disagree-proof their numbers by reading "
+        "currentMarketValue from economy.c, the one source of truth. That is why "
+        "no two modules can compute different prices.")
     pdf.hint("\u0db8\u0ddc\u0dab\u0ddc\u0db4\u0ddc\u0dbd\u0dd2 \u0d9a\u0dca\u200d\u0dbb\u0dd3\u0da9\u0dcf\u0dc0\u0dda "
              "\u0da2\u0dd3\u0dc0\u0db1 \u0da0\u0d9a\u0dca\u200d\u0dbb\u0dba: \u0d85\u0dc0\u0dbb\u0dd4\u0dbd\u0dda "
              "\u0db4\u0dd4\u0dc0\u0dbb\u0dd4\u0dc0\u0dda \u0d9c\u0db8\u0db1\u0dca -> \u0d9a\u0dd4\u0dbd\u0dd2/\u0db8\u0dd2\u0dbd\u0daf\u0dd3 "
@@ -728,6 +1052,20 @@ def section_data_model(pdf):
         "  +-- groupCooldownUntilRound[8]  lastBoomGroup  lastDeclineGroup\n"
         "  `-- ActiveModifier modifiers[48] + modifierCount"
     )
+    pdf.explain(
+        "This block shows the SHAPE of every piece of data the game remembers. It "
+        "is included because 'where is X stored?' is a favourite examiner question, "
+        "and this diagram is the complete inventory of where every fact lives.",
+        "GameState is the root that holds three big pieces: the board (40 Squares), "
+        "the players (4), and the economy. Each Square has a type and a Property "
+        "(even special squares hold a Property struct so every square can be "
+        "treated uniformly). Player holds one Loan and some counters. Economy holds "
+        "the rates plus up to 48 temporary ActiveModifier effects.",
+        "The fields encode game rules as data: owner = -1 IS 'unowned', loanLocked "
+        "IS 'cannot sell/mortgage', damaged IS 'earns no rent', condition IS 'how "
+        "much rent a building earns'. Instead of one global rulebook, the game "
+        "stores its state so that any rule can be checked by reading a single "
+        "field - consistent and easy to verify.")
     pdf.p("Almost every invariant of the game is stored somewhere in these fields: "
           "owner == -1 means unowned, loanLocked means 'cannot be sold or mortgaged', "
           "damaged means 'earns no rent', condition drives how much rent a developed "
@@ -770,6 +1108,19 @@ def module_main(pdf):
         "}",
         title="main.c (entire file, 17 lines)",
     )
+    pdf.explain(
+        "This is the very first file an examiner will look at. It is included in "
+        "full because it proves a design point: the entry point is ALLOWED to be "
+        "tiny. Every line here has a job, and none of it is 'spare'.",
+        "The comment tells the reader this is the ONLY GameState created. {} "
+        "zero-initialises every field of the struct so nothing holds garbage. The "
+        "three printf lines print the game banner, and startGame(game) starts the "
+        "whole simulation. return 0 signals a clean exit to the operating system.",
+        "The design thinking is 'thin entry point': main() has only two duties - "
+        "create the shared state and hand over to the engine. Every real setup "
+        "(board, players, economy) is delegated to startGame and its init_* "
+        "helpers, so everything that could go wrong is testable and nothing is "
+        "buried in main(). This directly answers 'why is main.c so short?'.")
     pdf.p("Why {0}? It zero-initialises every field. Without it, uninitialised data "
           "would contain garbage, and fields the board builders forget to set "
           "(e.g. owner) would look wrong. You will see board.c explicitly sets owner = -1 "
@@ -815,6 +1166,21 @@ def module_main(pdf):
         " 18 Katunayake (Orange 4700/370) 38 Bank of Ceylon\n"
         " 19 Ja-Ela (Orange 5000/400)  39  Galle Face (DkBlue 12000/1200)"
     )
+    pdf.explain(
+        "This is the complete board layout - every square, its index, colour group "
+        "and price/rent, all on one page. It is included because an examiner may "
+        "point at any square and ask why that number is stored there, and you need "
+        "the layout memorised to keep the numbers straight.",
+        "Each line reads: index, Sri Lankan place name, colour group in brackets, "
+        "then purchase price / basic rent. Special squares (GO, Community Fund, "
+        "Income Tax, Event, Jail, Insurance, Bank, Free Parking, Go To Jail) have "
+        "no price. There are 22 colour properties, 4 railways, 2 utilities and 12 "
+        "special squares = 40.",
+        "The layout mirrors the classic Monopoly ring indexed 0..39 clockwise. "
+        "Keeping prices grouped by colour (Brown cheap -> Dark Blue expensive) "
+        "reproduces the real game's balance. The index also IS the movement "
+        "coordinate: after moving, position = (position + dice) % 40, and looking "
+        "up board[pos] gives you every number for that square.")
     pdf.p("That makes 22 colour properties, 4 railways, 2 utilities, and 12 special "
           "squares (GO, Community Fund, Income Tax, 3 events, Jail, 2 insurance, "
           "Free Parking, Go To Jail, Bank) = 40 in total.")
@@ -907,6 +1273,20 @@ def module_main(pdf):
         "        run of 2+ -> call resolveGroup on JUST those tied players\n"
         "    return how many players were placed"
     )
+    pdf.explain(
+        "This algorithm decides who plays first in a fair way. It is included "
+        "because recursion is an exam-visible topic: 'show me something clever in "
+        "your code' can be answered with exactly this.",
+        "All players in the group roll a die. The group is sorted from highest to "
+        "lowest roll. Walking down the sorted list, a player with a unique roll is "
+        "placed straight into the output order; a run of players tied on the same "
+        "roll is passed to resolveGroup AGAIN so only they re-roll. The function "
+        "returns how many players it placed.",
+        "The logic thinking: instead of a messy while(anyTie) loop, tying players "
+        "are re-processed by the same routine - recursion mirrors the problem "
+        "perfectly. Each recursive call reduces the group size, so the recursion "
+        "always terminates, and the final order is strictly fair because ties are "
+        "decided by fresh dice rolls.")
 
     # -- finance.c ---------------------------------------------------------
     pdf.h2("7.5  finance.c - money, rent, buying, buildings, taxes, bankruptcy")
@@ -941,6 +1321,21 @@ def module_main(pdf):
         "if hotel: rent = rent * hotel-rent-mod / 100 (MOD_HOTEL_RENT)\n"
         "if developed: rent = rent * conditionPercent / 100   (Table 3)"
     )
+    pdf.explain(
+        "This is the exact formula for rent on a colour property - probably the "
+        "most quoted formula in the whole viva. It is given its own page so you can "
+        "point at each line while explaining.",
+        "Base rent is multiplied by a houses/hotel table (0 houses = x1 up to "
+        "hotel = x10). Then each active economy modifier is applied as a "
+        "percentage: the colour group's rent modifier, the global rent modifier, "
+        "and for hotels an extra hotel modifier. Finally, if there are buildings, "
+        "rent is scaled by the building's condition percent, so a run-down building "
+        "earns less.",
+        "The logic is layered: first 'how many buildings' (the player's own "
+        "investment), then 'what the economy is doing' (temporary modifiers), then "
+        "'how well maintained' (the wear-and-tear system). Multiplication in "
+        "percent form (/100) stacks bonuses the way the rules intend, and the "
+        "condition stage connects building health directly to income.")
     pdf.p("Condition percent (rentConditionPercent in economy.c): condition >= 90 -> 100%, "
           ">= 75 -> 90%, >= 50 -> 75%, >= 25 -> 50%, below 25 -> 0% (closed).")
     pdf.p("Railway rent is 250/500/1000/2000 depending on how many railways the same "
@@ -957,7 +1352,20 @@ def module_main(pdf):
         "  if !wantsToBuy -> runAuction(pos, seller = -1)   // Rule 5\n"
         "  else -> payMoney, set owner, increment owned counter"
     )
-
+    pdf.explain(
+        "This is the 'buy or auction' decision (Rule 5). It is included as its own "
+        "page because it explains a key rule twist: a player who refuses to buy "
+        "does NOT leave the square unowned - an auction fixes that.",
+        "The price comes from currentMarketValue so booms, declines and inflation "
+        "are all reflected. Colour properties add a purchase-price modifier (a "
+        "boom makes them 15% pricier). The strategy's shouldBuyProperty says yes "
+        "or no; cash is the hard gate - you cannot buy what you cannot afford. "
+        "Refusal or poverty sends the square to runAuction with no seller, and a "
+        "winning buyer pays the market price and gets ownership recorded.",
+        "The design keeps every buyable square flowing: wanted properties are "
+        "bought, unwanted or unaffordable ones go under the hammer. This makes the "
+        "board dynamic and also cleans up a classic oversight - otherwise a "
+        "refused property would just sit forever unowned.")
     pdf.h3("payMoney and bankruptcy (the safety wrapper)")
     pdf.p("This is one function every payment goes through, so bankruptcy handling "
           "is centralised. If the Risk Taker goes below zero, they first try to sell "
@@ -973,9 +1381,24 @@ def module_main(pdf):
         "if cash < 0 and not bankrupt:\n"
         "    bankrupt = 1\n"
         "    liquidateBankruptAssets(player)      // demolish, unown, auction each square\n"
-        "    cash = 0                             // remaining debt is written off"
+"        cash = 0                             // remaining debt is written off"
     )
-
+    pdf.explain(
+        "This is the single choke point every payment flows through. It is central "
+        "because bankruptcy must look identical no matter which payment caused it - "
+        "an examiner may ask 'what happens when a player cannot pay?' and this is "
+        "the one true answer.",
+        "First, only a Risk Taker gets a lifeline: while cash is negative they sell "
+        "their cheapest undeveloped property, and the loop breaks if nothing was "
+        "sold (you cannot sell the same property forever). If cash is still "
+        "negative, the player is marked bankrupt, liquidateBankruptAssets "
+        "demolishes buildings and auctions off every square, and cash is clamped "
+        "to zero so a bankrupt player never holds negative money.",
+        "Putting bankruptcy in one function means no other module can get it wrong - "
+        "there is no second place that declares bankruptcy. The Risk Taker's "
+        "auto-sell is a strategy difference: that personality refuses to die "
+        "silently, while the others simply go bankrupt. `if count >= before: break` "
+        "is a guard that stops infinite loops when there is nothing left to sell.")
     pdf.h3("Even development (Rule 9) - developGroup")
     pdf.p("A group can only be built on if the player owns the monopoly. developGroup "
           "always builds on the property with the fewest houses, so development stays "
@@ -996,7 +1419,21 @@ def module_main(pdf):
         "so a player can build SEVERAL houses in one turn - the loop stops when\n"
         "nothing more can be built (Strategy says no, cash runs out, or fully built)."
     )
-
+    pdf.explain(
+        "Rule 9 (even development) is the trickiest construction rule - and it was "
+        "the subject of a real bug found by the verifier. Its own page lets you "
+        "explain the whole rule and the fix in one sitting.",
+        "developGroup refuses to work unless the group is a monopoly. It then finds "
+        "the owned property with the fewest houses - that is what 'even' means. "
+        "Blocked members (mortgaged, damaged, loan-locked) are skipped, but a "
+        "skipped member with fewer than 4 houses also stops the whole group from "
+        "building a hotel. The target never receives a fifth house; instead the "
+        "four houses upgrade to one hotel. constructBuildings repeats this in a "
+        "do/while loop (capped at 20) so one turn can build several houses.",
+        "The thinking: 'build wherever is least developed' naturally keeps groups "
+        "even without a complicated planner, and the blocked-member guard closes "
+        "the loophole the verifier caught. The loop maximum is pure safety - a "
+        "richer player must never loop forever just because cash allowed it.")
     pdf.h3("Net worth (Rule 15)")
     pdf.code_block(
         "netWorth = cash\n"
@@ -1006,7 +1443,21 @@ def module_main(pdf):
         "\n"
         "note: mortgaged properties contribute ZERO to net worth"
     )
-
+    pdf.explain(
+        "Net worth determines the winner (Rule 15), so this formula is the scoring "
+        "system itself. It is on its own page because 'how do you decide who wins?' "
+        "is a guaranteed viva question.",
+        "Start with cash. Add the real (current, inflation-adjusted) market value "
+        "of every owned square, railways and utilities included. Add the money sunk "
+        "into buildings - houses valued at house cost, or hotel cost where a hotel "
+        "stands. Subtract any outstanding loan amount. Mortgaged properties count "
+        "as zero.",
+        "Using current market value instead of purchase price means booms and "
+        "declines genuinely change the standings. Buildings add their build cost "
+        "(you ARE worth what you invested) and loans subtract what you owe (debt "
+        "is money you do not really have). A mortgaged property counting zero "
+        "mirrors reality: you have borrowed against it, so it is not an asset you "
+        "own outright.")
     pdf.hint("\u0d9a\u0dd4\u0dbd\u0dd2\u0dba (rent) \u0d9c\u0dab\u0db1\u0dca \u0d9a\u0dbb\u0db1\u0dca\u0db1\u0dda "
              "\u0db4\u0dd9\u0dbd\u0dd9\u0db1\u0dca \u0d91\u0d9a\u0dd2\u0db1\u0dca \u0d91\u0d9a: base x houses "
              "\u0d9c\u0dd4\u0dab\u0d9a\u0dcf\u0dbb\u0dba x modifiers x \u0dad\u0dad\u0dca\u0dad\u0dca\u0dc0\u0dba%.")
@@ -1046,6 +1497,19 @@ def module_main(pdf):
         "    loan.remainingRounds--\n"
         "    if remainingRounds <= 0: foreclose(player)"
     )
+    pdf.explain(
+        "This is the heartbeat of the loan system - it runs once per round and "
+        "makes every loan grow or die. It has its own page because 'how does "
+        "interest work in your project?' is answered by exactly these four lines.",
+        "For every player with an active loan, interest is computed as "
+        "amount x rate% and written straight back into amount - that is compound "
+        "interest. Then remainingRounds drops by one, and the moment it hits zero "
+        "the bank forecloses: pledged property is seized and auctioned.",
+        "Compounding means interest is charged on previously added interest, so "
+        "unpaid loans snowball - that is intentional pressure on the player. The "
+        "foreclose at zero is the deadline made real; there is no hidden extension. "
+        "This single routine guarantees interest is applied exactly once per round, "
+        "consistently, for every player.")
     pdf.hint("\u0dab\u0dba\u0d9a\u0dca = \u0d87\u0db4 (collateral) \u0db8\u0dad \u0db4\u0daf\u0db1\u0db8\u0dca "
              "\u0dc0\u0dd6 lenders 75%; \u0db4\u0ddc\u0dbd\u0dd2\u0dba \u0dc3\u0dd1\u0db8 round \u0d91\u0d9a\u0dd2\u0db1\u0dca \u0d91\u0d9a "
              "\u0db8\u0dd4\u0daf\u0dbd\u0da7 \u0d91\u0d9a\u0dad\u0dd4 \u0dc0\u0dda (\u0da0\u0d9a\u0dca\u200d\u0dbb\u0dc0\u0dd8\u0dad\u0dca\u0dad\u0dd2 \u0db4\u0ddc\u0dbd\u0dd2).")
@@ -1075,6 +1539,22 @@ def module_main(pdf):
         "  if no one bid, the property stays with the Bank\n"
         "  winner pays currentBid; sellerIndex >= 0 receives it; ownership transferred"
     )
+    pdf.explain(
+        "This is the auction engine - used both when someone refuses to buy and "
+        "when the Anti-Speculation Act forces a sale. It has its own page because "
+        "'what happens at an auction?' often turns into a follow-up question.",
+        "The bidding starts at half the asking value, and every bid must beat the "
+        "current one by at least 250 LKR. Each active player gets a chance to bid "
+        "and, once they pass, they are out for good. The loop ends when one bidder "
+        "remains (capped at 200 rounds as a safety net), the last bidder gets one "
+        "final chance, and a property nobody bids on stays with the Bank. The "
+        "winner pays their bid and, if it was a forced sale, the original seller "
+        "receives the money.",
+        "The crucial logic is the seller exclusion - that is the verbatim bug fix "
+        "an examiner may ask about. Starting at half value encourages bidding, the "
+        "250 rise keeps maths simple (no decimals, always integers), and permanently "
+        "dropping passers prevents stalls. The 200-round cap means even a silly "
+        "auction terminates.")
     pdf.note("Why exclude the seller? Without that bug fix, a forced seller could bid on "
              "their own property, win it, and 'pay' themselves - a net-zero transfer that "
              "defeats the Anti-Speculation Act. Paying the bid to yourself is exactly neutral, "
@@ -1118,6 +1598,21 @@ def module_main(pdf):
         " 18 Government Grant   5000 to a random SOLVENT player (bug fix: not bankrupt)\n"
         " 19 National Disaster  random developed property damaged (disaster)"
     )
+    pdf.explain(
+        "These are the 20 national event cards that can fire when a player lands on "
+        "an EVENT square. The list is included because an examiner may name a card "
+        "and ask you to explain how it is implemented - knowing the mapping makes "
+        "that trivial.",
+        "Each case 0..19 maps to one effect: rent boosts and cuts, disasters, "
+        "interest-rate changes, tax amnesty, subsidies, a government grant and a "
+        "national disaster. Some change prices (implemented as timed modifiers), "
+        "some change interest rates, some directly hit property (damage).",
+        "The deck is implemented as a running counter (0..19 then wrap) instead of "
+        "a real shuffled deck, so every card is eventually drawn in a fixed cycle "
+        "with no shuffle code needed. Economic events and regulations use rand() % 8 "
+        "because they are meant to be random. Card 18 was fixed so the grant goes "
+        "only to a solvent player, and card 3's luxury tax prints per property - "
+        "two real bug fixes.")
     pdf.p("The deck is a simple counter: currentCardIndex rises 0 -> 19 then wraps to 0. "
           "That is equivalent to 'draw the top card, put it at the bottom of the deck' "
           "without needing a real deck data structure.")
@@ -1165,6 +1660,21 @@ def module_main(pdf):
         "  mult *= MOD_INDEX_VALUE (this exact square)\n"
         "  return price * mult / 100"
     )
+    pdf.explain(
+        "This is the single 'real price' formula of the whole game. It is on its "
+        "own page because it is the mechanism behind booms, declines, inflation and "
+        "renovation - and the reason no two modules can disagree on a price.",
+        "Start from the stored purchasePrice. Subtract age depreciation (a percent "
+        "of the price). Build a multiplier by multiplying every matching modifier "
+        "together: the global value modifier applies to everything, the colour "
+        "group's modifier applies to properties, the railway modifier to railways, "
+        "and a per-square index modifier to that exact square. Return "
+        "price x multiplier / 100.",
+        "The thinking is that events NEVER change base prices permanently - they "
+        "only stack temporary multipliers, so values drip back to normal when "
+        "timers expire. buy price, insurance, auction, net worth all call this one "
+        "function, so the game can never silently disagree with itself. Combining "
+        "modifiers by multiplication (not addition) is Rule-LK 34.")
     pdf.p("Because buyPrice, insurance premiums/repairs, renovation, net worth and "
           "auction values ALL call currentMarketValue, every part of the game always "
           "sees the same 'real price' - no numbers can disagree.")
@@ -1210,6 +1720,23 @@ def module_main(pdf):
         "      repairCostOwed = cost\n"
         "  if repairCostOwed > 0: damaged = 1   // no rent until repaired"
     )
+    pdf.explain(
+        "This is the disaster engine - the reason insurance exists in the game. It "
+        "is on its own page because it answers 'how does damage work?' and 'why do "
+        "players buy insurance?' in one flow.",
+        "Every 10 rounds (or via event cards) the game collects all developed "
+        "properties; if none exist nothing happens. One random developed property "
+        "is chosen and a disaster type is picked (weights favour flood or riot when "
+        "the related events are active). Repair cost is 30% of market value. If "
+        "insured, compensation covers 80%/100% and Business Interruption policies "
+        "protect 5 rounds of income; otherwise the owner is marked sufferedLoss. "
+        "Whatever is still owed marks the property damaged = no rent until paid.",
+        "Insurance changes a total loss into a manageable one - that is the "
+        "motivation for the insurance square. Uninsured losses set sufferedLoss, "
+        "which is exactly what flips the Risk Taker strategy to 'now I want "
+        "insurance'. `damaged = 1` ties damage directly to income: a broken "
+        "property earns nothing until repaired, which drives the repair loop at "
+        "the start of each turn.")
 
     # -- market.c ----------------------------------------------------------
     pdf.h2("7.11  market.c - market review, regional cards, report")
@@ -1406,6 +1933,18 @@ def section_verification(pdf):
         "python verify_analysis.py run2.txt    # -> 0 confirmed bugs\n"
         "python verify_analysis.py test.txt    # <- the pre-fix log: shows the bugs"
     )
+    pdf.explain(
+        "This shows the verification workflow in action - three log files, three "
+        "identical commands, three results. It is included because 'how did you "
+        "test this?' is a viva staple, and this is concrete, repeatable evidence.",
+        "run.txt and run2.txt are fresh post-fix game logs; running the verifier "
+        "on them reports zero confirmed bugs. test.txt is a pre-fix log kept on "
+        "purpose, so running the same tool over it still reproduces the six "
+        "original bugs - proof that the tool actually detects them.",
+        "The thinking: keep broken logs as test fixtures. A verifier that can "
+        "prove it finds the old bugs is credible when it says the new logs are "
+        "clean. Re-running is one command, so the whole regression check is "
+        "reproducible by an examiner on the spot.")
     pdf.h2("10.2  The 6 confirmed bugs that were found and fixed")
     pdf.table(
         ["#", "Bug", "Where", "Root cause / fix"],
@@ -1595,8 +2134,7 @@ def section_appendix(pdf):
         except OSError:
             continue
         n = src.count("\n") + 1
-        pdf.h2("%s   (%d lines)" % (title, n))
-        pdf.code_block(src)
+        pdf.code_block(src, title="%s   (%d lines)" % (title, n))
 
 
 # --------------------------------------------------------------------------
